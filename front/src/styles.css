@@ -320,14 +320,7 @@ textarea.input { min-height: 96px; resize: vertical; }
   transition: background-color var(--ease), color var(--ease);
 }
 .nav-item svg { flex: 0 0 auto; opacity: .9; }
-.nav-item:hover { background: rgba(255,255,255,.1); }
-.nav-item.active {
-  background: rgba(255,255,255,.18);
-  box-shadow: inset 3px 0 0 var(--orange);
-  font-weight: 700;
-  color: #fff;
-}
-.nav-item.active svg { opacity: 1; }
+.nav-item:hover { background: rgba(255,255,255,.06); }
 .nav-item.group-on { color: #fff; font-weight: 650; }
 .nav-item .nav-caret { margin-left: auto; opacity: .8; transition: transform var(--ease); }
 .nav-item.open .nav-caret { transform: rotate(90deg); }
@@ -340,7 +333,15 @@ textarea.input { min-height: 96px; resize: vertical; }
   font-weight: 500;
   color: rgba(255,255,255,.82);
 }
-.nav-child.active { font-weight: 700; color: #fff; }
+/* Estado ativo único para itens e subitens: o mesmo destaque em todas as áreas. */
+.nav-item.active,
+.nav-item.active:hover {
+  background: rgba(255,255,255,.18);
+  box-shadow: inset 3px 0 0 var(--orange);
+  font-weight: 700;
+  color: #fff;
+}
+.nav-item.active svg { opacity: 1; }
 button.dash-link { display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .sector-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 .sector-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; color: inherit; text-decoration: none; }

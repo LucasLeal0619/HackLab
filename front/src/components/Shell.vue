@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { navActive, navFor, navParent } from '../model'
+import { navFor, navState } from '../model'
 import { go, useHack } from '../store'
 import Field from './Field.vue'
 import Icon from './Icon.vue'
@@ -24,6 +24,7 @@ function toggleGroup(id) {
   expanded.value = isOpen(id) ? expanded.value.filter((item) => item !== id) : [...expanded.value, id]
 }
 
+const current = computed(() => navState(props.path))
 const session = computed(() => hack.state.session)
 const alertCount = computed(() => (
   hack.state.tasks.filter((item) => item.status !== 'Concluído').length
@@ -42,10 +43,10 @@ const alertItems = computed(() => [
 
 const spacingOptions = [['padrao', 'Padrão'], ['confortavel', 'Confortável'], ['amplo', 'Amplo']]
 
-watch(() => props.path, (path) => {
+watch(() => props.path, () => {
   panel.value = ''
   open.value = false
-  const parent = navParent(path)
+  const parent = current.value.group
   if (parent && !expanded.value.includes(parent)) expanded.value = [...expanded.value, parent]
 }, { immediate: true })
 
@@ -81,7 +82,7 @@ onUnmounted(() => {
             v-if="item.children"
             type="button"
             class="nav-item"
-            :class="{ open: isOpen(item.id), 'group-on': navParent(path) === item.id }"
+            :class="{ open: isOpen(item.id), 'group-on': current.group === item.id }"
             :aria-expanded="isOpen(item.id)"
             @click="toggleGroup(item.id)"
           >
@@ -95,9 +96,9 @@ onUnmounted(() => {
               :key="child.id"
               type="button"
               class="nav-item nav-child"
-              :class="{ active: navActive(child.id, path) }"
+              :class="{ active: current.item === child.id }"
               :tabindex="isOpen(item.id) ? 0 : -1"
-              :aria-current="navActive(child.id, path) ? 'page' : undefined"
+              :aria-current="current.item === child.id ? 'page' : undefined"
               @click="go(child.id); open = false; panel = ''"
             >
               {{ child.label }}
@@ -107,8 +108,8 @@ onUnmounted(() => {
             v-else
             type="button"
             class="nav-item"
-            :class="{ active: navActive(item.id, path) }"
-            :aria-current="navActive(item.id, path) ? 'page' : undefined"
+            :class="{ active: current.item === item.id }"
+            :aria-current="current.item === item.id ? 'page' : undefined"
             @click="go(item.id); open = false; panel = ''"
           >
             <Icon :name="item.icon" /> {{ item.label }}

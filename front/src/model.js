@@ -188,13 +188,16 @@ export function navActive(id, path) {
   return (LEAF[id] || []).includes(path)
 }
 
-export function navParent(path) {
+// Único ponto que traduz a rota atual em destino ativo da Sidebar.
+export function navState(path) {
   for (const group of FULL_NAV) {
     for (const item of group.items) {
-      if (item.children?.some((child) => navActive(child.id, path))) return item.id
+      const child = item.children?.find((entry) => navActive(entry.id, path))
+      if (child) return { item: child.id, group: item.id }
+      if (!item.children && navActive(item.id, path)) return { item: item.id, group: '' }
     }
   }
-  return ''
+  return { item: '', group: '' }
 }
 
 export function teamName(id) {
