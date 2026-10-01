@@ -1,6 +1,6 @@
 <script setup>
-import { computed } from 'vue'
-import { isAvailable, journeySteps, plural } from '../model'
+import { computed, ref } from 'vue'
+import { currentEventDay, isAvailable, journeySteps, occurrenceSector, occurrenceStatus, plural, presenceOf } from '../model'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import DashboardDomain from '../components/DashboardDomain.vue'
@@ -14,10 +14,13 @@ const steps = computed(() => journeySteps(state))
 const done = computed(() => steps.value.filter((step) => step.status === 'concluida').length)
 const current = computed(() => steps.value.find((step) => step.status === 'andamento') || steps.value[steps.value.length - 1])
 const openTasks = computed(() => state.tasks.filter((task) => task.status !== 'Concluído').length)
-const openOccList = computed(() => state.occurrences.filter((item) => item.status !== 'Resolvida'))
+const openOccList = computed(() => state.occurrences.filter((item) => occurrenceStatus(item) !== 'Resolvida'))
 const openOcc = computed(() => openOccList.value.length)
 const available = computed(() => state.students.filter(isAvailable).length)
-const present = computed(() => state.checkins.filter((item) => item.status === 'Presente').length)
+// Presença do dia de referência do evento (último dia com check-in; antes do evento, Dia 1).
+const eventDay = computed(() => currentEventDay(state))
+const dayRecords = computed(() => state.students.map((student) => presenceOf(state, student.id, eventDay.value)).filter(Boolean))
+const dayStarted = computed(() => state.checkins.some((item) => Number(item.day) === eventDay.value))
 const finishedEvals = computed(() => state.evaluations.filter((item) => item.status === 'concluida').length)
 const votes = computed(() => state.voting?.ballots?.length || 0)
 const withoutTeam = computed(() => {
@@ -50,16 +53,18 @@ const domains = computed(() => [
     items: [
       { label: 'Pendências', value: openTasks.value, to: 'pendencias' },
       { label: 'Reuniões', value: state.meetings.length, to: 'reunioes' },
+      { label: 'Ocorrências abertas', value: openOcc.value, to: 'ocorrencias' },
       { label: 'Documentos', value: state.documents.length, to: 'documentos' },
     ],
   },
   {
     title: 'Evento',
-    to: 'evento',
-    action: 'Abrir Modo Evento',
+    to: `presenca?dia=${eventDay.value}`,
+    action: 'Ver Ingressos e Presença',
     items: [
-      { label: 'Presenças', value: present.value, to: 'presenca' },
-      { label: 'Ocorrências', value: openOcc.value, to: 'ocorrencias' },
+      { label: `Presentes · Dia ${eventDay.value}`, value: dayRecords.value.length, to: `presenca?dia=${eventDay.value}` },
+      { label: 'Não registrados', value: state.students.length - dayRecords.value.length, to: `presenca?dia=${eventDay.value}` },
+      { label: 'Registros manuais', value: dayRecords.value.filter((item) => item.method === 'Manual').length, to: `presenca?dia=${eventDay.value}` },
     ],
   },
   {
@@ -74,6 +79,7 @@ const domains = computed(() => [
 ])
 // Atenção: problema/urgente primeiro, depois pendências, depois informação.
 const RANK = { bad: 0, warn: 1, info: 2 }
+const showAllAttention = ref(false)
 const attention = computed(() => {
   const items = []
   const broken = state.equipment.filter((item) => item.status === 'Com problema').length
@@ -83,13 +89,15 @@ const attention = computed(() => {
   if (broken) items.push({ tone: 'bad', text: plural(broken, 'equipamento com problema', 'equipamentos com problema'), to: 'setores?setor=Tecnologia' })
   if (otherOcc) items.push({ tone: 'warn', text: plural(otherOcc, 'ocorrência aberta', 'ocorrências abertas'), to: 'ocorrencias' })
   if (openTasks.value) items.push({ tone: 'warn', text: `${plural(openTasks.value, 'pendência precisa', 'pendências precisam')} de atenção`, to: 'pendencias' })
+  const missing = state.students.length - dayRecords.value.length
+  if (dayStarted.value && missing) items.push({ tone: 'warn', text: `${plural(missing, 'participante', 'participantes')} sem presença no Dia ${eventDay.value}`, to: `presenca?dia=${eventDay.value}` })
   if (withoutTeam.value) items.push({ tone: 'warn', text: `${plural(withoutTeam.value, 'participante', 'participantes')} sem equipe`, to: 'equipes' })
   if (state.teams.length && state.evaluations.length === 0) items.push({ tone: 'info', text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
   return items.sort((x, y) => RANK[x.tone] - RANK[y.tone])
 })
 const sectors = computed(() => (state.session?.sectors?.length ? state.session.sectors : [state.session?.sector || 'Tecnologia']))
 const editorTasks = computed(() => state.tasks.filter((task) => sectors.value.includes(task.sector) && task.status !== 'Concluído'))
-const calls = computed(() => state.occurrences.filter((item) => item.category === 'Suporte' && item.status !== 'Resolvida'))
+const calls = computed(() => openOccList.value.filter((item) => sectors.value.includes(occurrenceSector(item))))
 
 const STEP_LABELS = ['Configurar evento', 'Participantes', 'Equipes', 'Empresas e desafios', 'Preparação operacional', 'Realizar evento', 'Encerramento']
 
@@ -108,7 +116,7 @@ function statusLabel(status) {
   >
     <template #actions>
       <button class="btn" type="button" @click="go(`setores?setor=${encodeURIComponent(sectors[0])}`)">Abrir meu setor</button>
-      <button class="btn ghost" type="button" @click="go('evento')">Modo Evento</button>
+      <button class="btn ghost" type="button" @click="go('presenca')">Ingressos e Presença</button>
     </template>
     <div class="grid cols-2 mt">
       <article class="card">
@@ -123,14 +131,15 @@ function statusLabel(status) {
         <button class="btn small" type="button" @click="go(`setores?setor=${encodeURIComponent(sectors[0])}`)">Abrir setor</button>
       </article>
       <article class="card">
-        <h3>Atividades do evento</h3>
-        <p>Credenciamento, salas e o andamento dos três dias.</p>
-        <button class="btn ghost small" type="button" @click="go('evento')">Abrir Modo Evento</button>
+        <h3>Ingressos e presença</h3>
+        <p>Check-in dos participantes e presença em cada dia do Hackathon.</p>
+        <button class="btn ghost small" type="button" @click="go('presenca')">Abrir Ingressos e Presença</button>
       </article>
       <article class="card">
         <h3>Ocorrências relacionadas</h3>
         <p v-if="calls.length === 0">Nenhuma ocorrência aberta. Tudo certo por aqui.</p>
         <p v-for="item in calls.slice(0, 3)" :key="item.id">{{ item.title }}</p>
+        <button class="btn ghost small" type="button" @click="go(`ocorrencias?setor=${encodeURIComponent(sectors[0])}`)">Ver ocorrências</button>
       </article>
     </div>
     <SectorSummary class="mt" />
@@ -174,11 +183,11 @@ function statusLabel(status) {
           </div>
           <p v-if="attention.length === 0" class="dash-empty"><span class="dash-signal ok">Tudo em ordem</span> Nenhuma ação pendente.</p>
           <ul v-else class="dash-actions">
-            <li v-for="item in attention.slice(0, 3)" :key="item.text">
+            <li v-for="item in (showAllAttention ? attention : attention.slice(0, 3))" :key="item.text">
               <a :href="`#/${item.to}`" @click.prevent="go(item.to)"><i class="dash-dot" :class="item.tone" aria-hidden="true" /><span>{{ item.text }}</span><span aria-hidden="true">→</span></a>
             </li>
           </ul>
-          <a v-if="attention.length > 3" class="dash-more" href="#/pendencias" @click.prevent="go('pendencias')">+ {{ attention.length - 3 }} {{ attention.length - 3 === 1 ? 'outra' : 'outras' }} · Ver todas →</a>
+          <button v-if="attention.length > 3" class="dash-more linkish" type="button" :aria-expanded="showAllAttention" @click="showAllAttention = !showAllAttention">{{ showAllAttention ? 'Mostrar menos' : `+ ${attention.length - 3} ${attention.length - 3 === 1 ? 'outra' : 'outras'} · Ver todas` }}</button>
         </section>
       </div>
     </div>

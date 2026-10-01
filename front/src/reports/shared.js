@@ -1,4 +1,4 @@
-import { SETORES, TURMAS, activeMembers, companyOf, isAvailable, teamChallenge, teamName } from '../model'
+import { SETORES, TURMAS, activeMembers, companyOf, isAvailable, occurrenceCategory, occurrenceSector, occurrenceStatus, teamChallenge, teamName } from '../model'
 
 // Leitura e formatação dos dados do protótipo para os relatórios em PDF.
 // Os builders só leem o estado; nada aqui altera a store.
@@ -195,9 +195,9 @@ export function sectorFacts(state, name) {
   }
   if (name === 'Tecnologia') {
     const equipment = state.equipment || []
-    return [...base, ['Equipamentos', count(equipment.length)], ['Equipamentos com problema', count(equipment.filter((item) => item.status === 'Com problema').length)], ['Chamados de suporte abertos', count(supportCalls(state).filter(isOpen).length)]]
+    return [...base, ['Equipamentos', count(equipment.length)], ['Equipamentos com problema', count(equipment.filter((item) => item.status === 'Com problema').length)], ['Ocorrências abertas do setor', count(sectorOccurrences(state, name).filter(isOpen).length)]]
   }
-  return [...base, ['Espaços', count((state.spaces || []).length)], ['Materiais', count((state.materials || []).length)], ['Frentes de operação', count((state.operations || []).length)]]
+  return [...base, ['Espaços', count((state.spaces || []).length)], ['Materiais', count((state.materials || []).length)], ['Ocorrências abertas do setor', count(sectorOccurrences(state, name).filter(isOpen).length)]]
 }
 
 export { SETORES }
@@ -205,15 +205,15 @@ export { SETORES }
 // Operação do evento
 
 export function isOpen(item) {
-  return item.status !== 'Resolvida' && item.status !== 'Concluído'
+  return occurrenceStatus(item) !== 'Resolvida'
 }
 
-export function supportCalls(state) {
-  return (state.occurrences || []).filter((item) => item.category === 'Suporte')
+export function sectorOccurrences(state, name) {
+  return (state.occurrences || []).filter((item) => occurrenceSector(item) === name)
 }
 
 export function occurrenceRows(state) {
-  return (state.occurrences || []).map((item) => [text(item.title), text(item.category), text(item.place), text(item.priority), text(item.status), text(item.responsible)])
+  return (state.occurrences || []).map((item) => [text(item.title), occurrenceCategory(item), text(item.place), text(occurrenceSector(item), 'Sem setor'), text(item.priority), occurrenceStatus(item), text(item.responsible)])
 }
 
 export function spaceRows(state) {

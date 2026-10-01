@@ -35,9 +35,9 @@ export function sectorSummaries(state) {
   const balance = incomes.length + expenses.length ? incomeTotal - expenseTotal : null
   const occurrences = state.occurrences || []
   const open = (item) => item.status !== 'Resolvida' && item.status !== 'Concluído'
-  const calls = occurrences.filter((item) => item.category === 'Suporte' && open(item)).length
+  const calls = occurrences.filter((item) => occurrenceSector(item) === 'Tecnologia' && open(item)).length
   const broken = (state.equipment || []).filter((item) => item.status === 'Com problema').length
-  const prodOcc = occurrences.filter((item) => item.category !== 'Suporte' && open(item)).length
+  const prodOcc = occurrences.filter((item) => occurrenceSector(item) === 'Produção' && open(item)).length
   return [
     {
       name: 'Recursos Humanos',
@@ -62,7 +62,7 @@ export function sectorSummaries(state) {
       icon: 'bolt',
       highlight: broken ? plural(broken, 'com problema', 'com problema') : plural(state.equipment?.length || 0, 'equipamento', 'equipamentos'),
       highlightTone: broken ? 'bad' : '',
-      status: calls ? { text: plural(calls, 'chamado aberto', 'chamados abertos'), tone: 'warn' } : pending('Tecnologia'),
+      status: calls ? { text: plural(calls, 'ocorrência aberta', 'ocorrências abertas'), tone: 'warn' } : pending('Tecnologia'),
     },
     {
       name: 'Produção',
@@ -71,6 +71,53 @@ export function sectorSummaries(state) {
       status: prodOcc ? { text: plural(prodOcc, 'ocorrência', 'ocorrências'), tone: 'warn' } : pending('Produção'),
     },
   ]
+}
+
+// Ocorrências: fatos ocorridos (diferente de pendência, que é algo a fazer).
+export const OCC_CATEGORIES = ['Tecnologia', 'Infraestrutura', 'Produção', 'Participante', 'Equipe', 'Empresa', 'Organização', 'Outro']
+export const OCC_PRIORITIES = ['Baixa', 'Média', 'Alta', 'Urgente']
+export const OCC_STATUS = ['Aberta', 'Em atendimento', 'Resolvida']
+
+// Categorias antigas do protótipo continuam legíveis sem migrar o que já está salvo.
+const LEGACY_OCC_CATEGORY = { Suporte: 'Tecnologia', Equipamento: 'Tecnologia', Sala: 'Infraestrutura', Estrutura: 'Infraestrutura', Materiais: 'Produção' }
+const CATEGORY_SECTOR = { Tecnologia: 'Tecnologia', Infraestrutura: 'Produção', Produção: 'Produção' }
+
+export function occurrenceCategory(item) {
+  const category = item?.category || 'Outro'
+  return LEGACY_OCC_CATEGORY[category] || category
+}
+
+export function occurrenceSector(item) {
+  return item?.sector ?? CATEGORY_SECTOR[occurrenceCategory(item)] ?? ''
+}
+
+export function occurrenceStatus(item) {
+  return OCC_STATUS.includes(item?.status) ? item.status : item?.status === 'Concluído' ? 'Resolvida' : 'Aberta'
+}
+
+// Ingresso: 1 participante = 1 ingresso = 1 QR Code, válido nos três dias.
+export const TICKET_STATUS = ['Ativo', 'Bloqueado', 'Cancelado']
+
+export function ticketCode(student) {
+  const id = String(student?.id || '')
+  const digits = id.match(/(\d+)$/)?.[1]
+  const number = digits ? Number(digits) : [...id].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 99999, 7)
+  return `HL-${String(number).padStart(5, '0')}`
+}
+
+export function ticketStatus(student) {
+  return TICKET_STATUS.includes(student?.ticketStatus) ? student.ticketStatus : 'Ativo'
+}
+
+// Presença é por dia e não depende da disponibilidade do cadastro.
+export function presenceOf(state, personId, day) {
+  return (state.checkins || []).find((item) => item.personId === personId && Number(item.day) === Number(day) && item.status === 'Presente') || null
+}
+
+// Dia de referência: o último dia com registro de presença; antes do evento, Dia 1.
+export function currentEventDay(state) {
+  const days = (state.checkins || []).map((item) => Number(item.day)).filter((day) => [1, 2, 3].includes(day))
+  return days.length ? Math.max(...days) : 1
 }
 
 export const ACCOUNTS = {
@@ -107,6 +154,7 @@ const GESTAO_CHILDREN = [
   { id: 'setores', label: 'Setores' },
   { id: 'reunioes', label: 'Reuniões' },
   { id: 'pendencias', label: 'Pendências' },
+  { id: 'ocorrencias', label: 'Ocorrências' },
   { id: 'documentos', label: 'Documentos' },
 ]
 
@@ -129,7 +177,7 @@ const FULL_NAV = [
   {
     group: 'Evento',
     items: [
-      { id: 'evento', label: 'Modo Evento', icon: 'bolt' },
+      { id: 'presenca', label: 'Ingressos e Presença', icon: 'ticket' },
       { id: 'encerramento', label: 'Encerramento', icon: 'star', children: CLOSE_CHILDREN },
     ],
   },
@@ -140,7 +188,7 @@ const FULL_NAV = [
 const EDITOR_NAV = [
   { group: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', icon: 'home' }] },
   { group: 'Organização', items: [{ id: 'gestao', label: 'Gestão', icon: 'grid', children: GESTAO_CHILDREN }] },
-  { group: 'Evento', items: [{ id: 'evento', label: 'Modo Evento', icon: 'bolt' }] },
+  { group: 'Evento', items: [{ id: 'presenca', label: 'Ingressos e Presença', icon: 'ticket' }] },
 ]
 
 export function navFor(profile) {
@@ -162,7 +210,8 @@ const LEAF = {
   reunioes: ['reunioes', 'reuniao', 'manifestacao'],
   pendencias: ['pendencias'],
   documentos: ['documentos'],
-  evento: ['evento', 'ingresso', 'validar', 'presenca', 'sala', 'ocorrencias'],
+  ocorrencias: ['ocorrencias'],
+  presenca: ['presenca'],
   jurados: ['jurados', 'criterios'],
   avaliacoes: ['avaliacoes'],
   'votacao-gestao': ['votacao-gestao'],
@@ -695,8 +744,8 @@ export function buildDemo(current) {
       { id: 'doc-8', name: 'Documento demonstrativo 08', category: 'Outros', responsible: 'Usuário demonstrativo 01', sector: '', description: 'Documento demonstrativo.', version: '1.0', note: '', date: '26/09/2026', fileName: 'outros-demonstrativo.pdf', history: [{ version: '1.0', date: '26/09/2026', responsible: 'Usuário demonstrativo 01', note: 'Versão inicial' }] },
     ],
     occurrences: [
-      { id: 'oc-1', title: 'Chamado demonstrativo 01', category: 'Suporte', description: 'Descrição demonstrativa do chamado de suporte.', place: 'Sala 03', priority: 'Alta', responsible: 'Usuário demonstrativo 04', status: 'Aberta', solution: '', day: '', at: '' },
-      { id: 'oc-4', title: 'Ocorrência demonstrativa 04', category: 'Sala', description: 'Descrição demonstrativa da ocorrência na Sala 03.', place: 'Sala 03', priority: 'Urgente', responsible: 'Usuário demonstrativo 05', status: 'Aberta', solution: '', day: 2, at: 'Horário demonstrativo' },
+      { id: 'oc-1', title: 'Chamado demonstrativo 01', category: 'Tecnologia', sector: 'Tecnologia', team: '', description: 'Descrição demonstrativa do chamado de suporte.', place: 'Sala 03', priority: 'Alta', responsible: 'Usuário demonstrativo 04', status: 'Aberta', solution: '', day: '', at: '' },
+      { id: 'oc-4', title: 'Ocorrência demonstrativa 04', category: 'Infraestrutura', sector: 'Produção', team: '', description: 'Descrição demonstrativa da ocorrência na Sala 03.', place: 'Sala 03', priority: 'Urgente', responsible: 'Usuário demonstrativo 05', status: 'Aberta', solution: '', day: 2, at: 'Horário demonstrativo' },
     ],
     judges: [
       {
@@ -777,7 +826,7 @@ export function journeySteps(state) {
     ['Formar equipes', 'equipes'],
     ['Empresas e desafios', 'empresas'],
     ['Preparação operacional', 'setores'],
-    ['Realizar evento', 'evento'],
+    ['Realizar evento', 'presenca'],
     ['Encerramento', 'jurados'],
   ]
   return meta.map(([label, to], index) => ({ label, to, status: status[index] }))

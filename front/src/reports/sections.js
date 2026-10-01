@@ -78,7 +78,7 @@ export function operationSection(state) {
     sub('Frequência por dia', [table(['Dia', 'Presentes', 'Ausentes', 'Não registrado', 'Presença'], d.dayRows(state), ['*', 60, 60, 80, 60])]),
     sub('Salas e estrutura', [table(['Espaço', 'Tipo', 'Capacidade', 'Finalidade', 'Status'], d.spaceRows(state), [70, 50, 55, '*', 75])]),
     sub('Equipamentos e suporte', [
-      kv([['Equipamentos cadastrados', d.count((state.equipment || []).length)], ['Com problema', d.count((state.equipment || []).filter((item) => item.status === 'Com problema').length)], ['Chamados de suporte abertos', d.count(d.supportCalls(state).filter(d.isOpen).length)]]),
+      kv([['Equipamentos cadastrados', d.count((state.equipment || []).length)], ['Com problema', d.count((state.equipment || []).filter((item) => item.status === 'Com problema').length)], ['Ocorrências abertas de Tecnologia', d.count(d.sectorOccurrences(state, 'Tecnologia').filter(d.isOpen).length)]]),
       table(['Equipamento', 'Categoria', 'Qtd.', 'Local', 'Status'], d.equipmentRows(state), ['*', 65, 30, 55, 70]),
     ]),
   ])
@@ -88,7 +88,7 @@ export function occurrencesSection(state) {
   const items = state.occurrences || []
   return section('Ocorrências', [
     kv([['Ocorrências registradas', d.count(items.length)], ['Abertas', d.count(items.filter(d.isOpen).length)], ['Resolvidas', d.count(items.length - items.filter(d.isOpen).length)]]),
-    table(['Ocorrência', 'Categoria', 'Local', 'Prioridade', 'Status', 'Responsável'], d.occurrenceRows(state), ['*', 55, 50, 50, 50, 85]),
+    table(['Ocorrência', 'Categoria', 'Local', 'Setor', 'Prioridade', 'Status', 'Responsável'], d.occurrenceRows(state), ['*', 58, 45, 55, 45, 52, 70]),
   ])
 }
 

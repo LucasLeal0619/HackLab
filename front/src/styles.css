@@ -622,7 +622,6 @@ td .btn + .btn, td .btn + button { margin-left: 8px; }
 .empty p { max-width: 42ch; margin: 0 auto var(--space-3); font-size: var(--text-md); }
 .filters { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-4); }
 .filters .input, .filters select.input { width: auto; min-width: 180px; }
-.filters .input.event-search { width: min(100%, 420px); min-width: 320px; }
 .filters .input-icon { flex: 1 1 220px; max-width: 320px; min-width: 200px; }
 
 .tabs {
@@ -922,16 +921,7 @@ td .btn + .btn, td .btn + button { margin-left: 8px; }
 .note-ok { margin: 8px 0; color: var(--ok); font-weight: 650; }
 .flow-line { color: var(--muted); font-size: 13px; }
 .quick.ops { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-.day-strip { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
-.day-strip h2 { margin: 0 0 4px; font-size: 18px; color: var(--blue); }
-.day-strip p { margin: 0; color: var(--muted); max-width: 62ch; }
 .ops-title { margin: 18px 0 8px; font-size: 16px; }
-.day-flow { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
-.day-flow li { font-size: 14px; }
-.room-card h3 { font-size: 15px; }
-.room-card p { margin: 4px 0; font-size: 13px; }
-.search-hits { display: grid; gap: 8px; margin-bottom: 12px; }
-.search-hit { text-align: left; }
 .filters .field { margin: 0; min-width: 180px; flex: 1 1 180px; max-width: 240px; }
 .filters .field .input { width: 100%; min-width: 0; }
 .eval-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
@@ -963,8 +953,6 @@ td .btn + .btn, td .btn + button { margin-left: 8px; }
 .vote-card p { margin: 2px 0; font-size: 13px; }
 .vote-card { display: flex; flex-direction: column; height: 100%; }
 .vote-card .btn { margin-top: auto; }
-.room-card { display: flex; flex-direction: column; height: 100%; }
-.room-card .btn { margin-top: auto; }
 .results-mark {
   width: 72px;
   height: 72px;
@@ -1009,13 +997,11 @@ html.contrast .popover { color: #000; }
 html.contrast .page-head p,
 html.contrast .crumbs,
 html.contrast .ops-title,
-html.contrast .stat-hint,
-html.contrast .day-strip p { color: #fff; }
+html.contrast .stat-hint { color: #fff; }
 html.contrast .btn { background: #000; color: #fff; border: 2px solid #fff; }
 html.contrast .btn.ghost { background: #fff; color: #000; border: 2px solid #000; }
 html.contrast .badge { background: #fff; color: #000; border: 1px solid #000; }
-html.contrast .results-block h2,
-html.contrast .day-strip h2 { color: #fff; }
+html.contrast .results-block h2 { color: #fff; }
 html.contrast .dash-block-title,
 html.contrast .dash-lines a,
 html.contrast .dash-sector-name,
@@ -1199,30 +1185,6 @@ html.contrast .nav-item.active { box-shadow: inset 3px 0 0 #fff; }
 .journey-steps li.andamento, .prep-rail li.andamento, .day-track li.now { color: var(--blue); font-weight: 700; }
 .journey-steps li.concluida span { background: #e7f6ee; border-color: #0d7a43; color: #0d7a43; }
 .journey-steps li.andamento span { background: #e8f1fa; border-color: var(--blue); color: var(--blue); }
-.now-block {
-  background: #fff;
-  color: #1c2b3a;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--orange);
-  border-radius: 12px;
-  padding: 16px 18px;
-  margin-bottom: 16px;
-}
-.now-block h2 { margin: 0 0 6px; font-size: 26px; }
-.next-step {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  margin-top: 20px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
-  color: #1c2b3a;
-}
-.next-step h3 { margin: 0 0 4px; }
-.next-step p { margin: 0; }
 .journey-slot > .page > .crumbs { display: none; }
 .journey-slot > .page > .page-head .page-title { display: none; }
 .journey-slot > .page > .page-head { justify-content: flex-end; margin-bottom: 8px; }
@@ -1238,8 +1200,6 @@ html.contrast .nav-item.active { box-shadow: inset 3px 0 0 #fff; }
 }
 .stack-nav button.on { border-color: var(--blue); color: var(--blue); font-weight: 700; }
 .inline-links { display: flex; gap: 16px; margin: 0 0 12px; }
-.more-block { margin-top: 8px; }
-.more-block summary { cursor: pointer; font-weight: 700; margin: 8px 0 12px; }
 .focus-app { min-height: 100vh; background: var(--bg); }
 .focus-bar {
   height: 64px;
@@ -1253,3 +1213,27 @@ html.contrast .nav-item.active { box-shadow: inset 3px 0 0 #fff; }
 .focus-bar strong { margin-right: auto; }
 .focus-app main { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48px; }
 .card .btn.small { margin-top: 8px; }
+
+/* Ingressos e Presença e Central de Ocorrências */
+.attendance-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.attendance-bar .tabs { margin: 0; }
+.attendance-search { width: min(100%, 340px); }
+.attendance-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+.attendance-summary > b { color: var(--text); }
+.attendance-summary span b { color: var(--text); margin-left: 4px; }
+.ticket-code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.scan-area { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.scan-area .field { width: 100%; text-align: left; }
+.scan-result { margin-top: 14px; }
+.scan-facts, .ticket-days, .detail-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 8px 0 0; }
+.scan-facts dt, .ticket-days dt, .detail-list dt { color: var(--muted); }
+.scan-facts dd, .ticket-days dd, .detail-list dd { margin: 0; font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ticket-days dd .stat-hint { font-weight: 400; }
+.attendance-table th { white-space: nowrap; }
+.attendance-table td:last-child .row-actions { flex-wrap: nowrap; gap: 8px; }
+.attendance-table .ticket-code { white-space: nowrap; }
+.occ-filters .input, .occ-filters select.input { flex: 1 1 120px; min-width: 0; max-width: none; }
+.occ-filters .input:first-child { flex: 2 1 200px; }
+.sector-occ { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.sector-occ h3 { margin: 0 0 4px; }
+.sector-occ p { margin: 0 0 4px; }

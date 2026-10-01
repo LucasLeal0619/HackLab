@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { EXPENSE_CATEGORIES, SETORES, uid } from '../model'
+import { EXPENSE_CATEGORIES, occurrenceSector, occurrenceStatus, SETORES, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
@@ -68,7 +68,6 @@ const NEW_TITLES = {
   campanha: 'Nova campanha',
   conteudo: 'Novo item',
   equip: 'Novo equipamento',
-  chamado: 'Novo chamado',
   espaco: 'Novo espaço',
   material: 'Novo material',
   infra: 'Novo item',
@@ -83,7 +82,6 @@ const EDIT_TITLES = {
   campanha: 'Editar campanha',
   conteudo: 'Editar item',
   equip: 'Editar equipamento',
-  chamado: 'Editar chamado',
   espaco: 'Editar espaço',
   material: 'Editar material',
   infra: 'Editar item',
@@ -108,7 +106,7 @@ function sectorPulse(name) {
     'Recursos Humanos': state.orgMembers.length,
     Finanças: state.incomes.length + state.expenses.length + (state.suppliers || []).length,
     Marketing: state.campaigns.length + (state.contents || []).length,
-    Tecnologia: state.equipment.length + (state.infra || []).length + (state.occurrences || []).filter((item) => item.category === 'Suporte').length,
+    Tecnologia: state.equipment.length + (state.infra || []).length + (state.occurrences || []).filter((item) => occurrenceSector(item) === 'Tecnologia').length,
     Produção: state.spaces.length + (state.materials || []).length + (state.operations || []).length,
   }[name]
   return started ? { label: 'Em andamento', count: open } : { label: 'Não iniciado', count: 0 }
@@ -138,7 +136,8 @@ watch(sector, (name) => {
 
 const pendencias = computed(() => state.tasks.filter((task) => task.sector === sector.value && task.status !== 'Concluído'))
 const knownExpenses = computed(() => state.expenses.filter((item) => (item.actual !== '' && item.actual != null) || (item.planned !== '' && item.planned != null)))
-const calls = computed(() => (state.occurrences || []).filter((item) => item.category === 'Suporte'))
+const sectorOccurrences = computed(() => (state.occurrences || []).filter((item) => occurrenceSector(item) === sector.value))
+const openSectorOccurrences = computed(() => sectorOccurrences.value.filter((item) => occurrenceStatus(item) !== 'Resolvida').length)
 const suppliers = computed(() => state.suppliers || [])
 const contents = computed(() => state.contents || [])
 const materials = computed(() => state.materials || [])
@@ -171,6 +170,11 @@ const primarySectors = computed(() => (mineSet.value.size ? SETORES.filter((name
 const otherSectors = computed(() => (mineSet.value.size ? SETORES.filter((name) => !mineSet.value.has(name)) : []))
 const modalTitle = computed(() => (form.value.id ? EDIT_TITLES : NEW_TITLES)[modal.value])
 
+function reportOccurrence(extra = {}) {
+  const query = new URLSearchParams({ novo: '1', setor: sector.value, categoria: sector.value === 'Tecnologia' ? 'Tecnologia' : 'Infraestrutura', ...extra })
+  go(`ocorrencias?${query.toString()}`)
+}
+
 function selectSector(name) {
   go(`setores?setor=${encodeURIComponent(name)}`)
 }
@@ -183,7 +187,7 @@ function open(type, seed) {
 function save() {
   const type = modal.value
   const current = form.value
-  if ((type === 'membro' || type === 'campanha' || type === 'equip' || type === 'espaco' || type === 'chamado' || type === 'material' || type === 'fornecedor' || type === 'conteudo' || type === 'comprovante' || type === 'infra' || type === 'operacao') && !String(current.name || current.title || '').trim()) {
+  if ((type === 'membro' || type === 'campanha' || type === 'equip' || type === 'espaco' || type === 'material' || type === 'fornecedor' || type === 'conteudo' || type === 'comprovante' || type === 'infra' || type === 'operacao') && !String(current.name || current.title || '').trim()) {
     flash('Informe o nome para salvar.', 'err')
     return
   }
@@ -256,12 +260,6 @@ function save() {
       place(draft.contents, { id: current.id || uid('cont'), name: current.name, kind: current.kind, channel: current.channel, responsible: current.responsible, date: current.date, status: current.status })
     }
     if (type === 'equip') place(draft.equipment, { ...current, id: current.id || uid('eq'), qty: Number(current.qty || 1) })
-    if (type === 'chamado') {
-      const record = { title: current.title, category: current.category || 'Suporte', description: current.description || '', place: current.place, priority: current.priority, responsible: current.responsible, status: current.status || 'Aberta' }
-      const index = current.id ? draft.occurrences.findIndex((item) => item.id === current.id) : -1
-      if (index >= 0) draft.occurrences[index] = { ...draft.occurrences[index], ...record }
-      else draft.occurrences.unshift({ id: uid('oc'), ...record, solution: '', day: '', at: '' })
-    }
     if (type === 'espaco') place(draft.spaces, { ...current, id: current.id || uid('sp') })
     if (type === 'material') {
       if (!draft.materials) draft.materials = []
@@ -338,7 +336,7 @@ function editSchedule(item) {
       <button v-else-if="view === 'campanhas'" class="btn" @click="open('campanha', { name: '', objective: '', audience: '', channel: 'Instagram', responsible: '', date: '', status: 'Não iniciado', description: '' })">+ Nova campanha</button>
       <button v-else-if="view === 'conteudos'" class="btn" @click="open('conteudo', { name: '', kind: 'Conteúdo', channel: 'Instagram', responsible: '', date: '', status: 'Pendente' })">+ Novo item</button>
       <button v-else-if="view === 'equipamentos'" class="btn" @click="open('equip', { name: '', category: 'Notebook', qty: 1, place: '', status: 'Disponível', notes: '' })">+ Novo equipamento</button>
-      <button v-else-if="view === 'suporte'" class="btn" @click="open('chamado', { title: '', place: '', priority: 'Média', responsible: '', description: '' })">+ Novo chamado</button>
+      <button v-else-if="view === 'suporte'" class="btn" type="button" @click="reportOccurrence()">+ Registrar ocorrência</button>
       <button v-else-if="view === 'espacos'" class="btn" @click="open('espaco', { name: '', type: 'Sala', capacity: '', purpose: '', status: 'Não iniciado', notes: '' })">+ Novo espaço</button>
       <button v-else-if="view === 'materiais'" class="btn" @click="open('material', { name: '', needed: '', available: '', status: 'A definir' })">+ Novo material</button>
       <button v-else-if="view === 'funcoes'" class="btn" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Nova função</button>
@@ -600,6 +598,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Categoria', item.category], ['Quantidade', item.qty], ['Local', item.place || 'A definir'], ['Status', item.status], ['Observação', item.notes || '—']] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('equip', { place: '', notes: '', ...item })">Editar</button>
+                <button v-if="item.status === 'Com problema'" class="btn ghost small" type="button" @click="reportOccurrence({ titulo: `Problema em ${item.name}`, local: item.place || '' })">Registrar ocorrência</button>
                 <button class="btn ghost small" type="button" @click="removing = { list: 'equipment', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
@@ -629,27 +628,16 @@ function editSchedule(item) {
       </table>
     </div>
 
-    <div v-else-if="sector === 'Tecnologia' && view === 'suporte'" class="table-wrap">
-      <table>
-        <thead><tr><th>Chamado</th><th>Local</th><th>Prioridade</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead>
-        <tbody>
-          <tr v-if="calls.length === 0"><td colspan="6"><Empty title="Nenhum chamado registrado." /></td></tr>
-          <tr v-for="item in calls" :key="item.id">
-            <td>{{ item.title }}</td>
-            <td>{{ item.place || '—' }}</td>
-            <td><Badge :tone="toneFor(item.priority)">{{ item.priority }}</Badge></td>
-            <td>{{ item.responsible || '—' }}</td>
-            <td><Badge :tone="toneFor(item.status)">{{ item.status }}</Badge></td>
-            <td>
-              <div class="row-actions">
-                <button class="btn ghost small" type="button" @click="detail = { title: item.title, lines: [['Local', item.place || '—'], ['Prioridade', item.priority], ['Responsável', item.responsible || '—'], ['Status', item.status], ['Descrição', item.description || '—']] }">Visualizar</button>
-                <button class="btn ghost small" type="button" @click="open('chamado', { place: '', responsible: '', description: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'occurrences', id: item.id, name: item.title }">Excluir</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else-if="sector === 'Tecnologia' && view === 'suporte'" class="card sector-occ">
+      <div>
+        <h3>Suporte e ocorrências técnicas</h3>
+        <p>Chamados de suporte são registrados e acompanhados na Central de Ocorrências, em Gestão → Ocorrências.</p>
+        <p class="stat-hint">{{ openSectorOccurrences }} {{ openSectorOccurrences === 1 ? 'ocorrência aberta' : 'ocorrências abertas' }} de Tecnologia · {{ sectorOccurrences.length }} no total.</p>
+      </div>
+      <div class="row-actions">
+        <button class="btn ghost" type="button" @click="go(`ocorrencias?setor=${encodeURIComponent('Tecnologia')}`)">Ver na Central de Ocorrências</button>
+        <button class="btn" type="button" @click="reportOccurrence()">Registrar ocorrência</button>
+      </div>
     </div>
 
     <div v-else-if="sector === 'Produção' && view === 'espacos'" class="table-wrap">
@@ -666,6 +654,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Tipo', item.type], ['Uso', item.purpose || '—'], ['Capacidade', item.capacity || '—'], ['Status', item.status]] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('espaco', { purpose: '', capacity: '', notes: '', type: item.type || 'Sala', ...item })">Editar</button>
+                <button class="btn ghost small" type="button" @click="reportOccurrence({ local: item.name })">Registrar ocorrência</button>
                 <button class="btn ghost small" type="button" @click="removing = { list: 'spaces', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
@@ -853,18 +842,6 @@ function editSchedule(item) {
           </select>
         </Field>
         <Field label="Observação" class="span-2"><textarea v-model="form.notes" class="input" /></Field>
-      </div>
-      <div v-else-if="modal === 'chamado'" class="form-grid">
-        <Field label="Chamado" required class="span-2"><input v-model="form.title" class="input" /></Field>
-        <Field label="Local"><input v-model="form.place" class="input" /></Field>
-        <Field label="Responsável"><input v-model="form.responsible" class="input" /></Field>
-        <div class="field span-2">
-          <span>Prioridade</span>
-          <div class="chips">
-            <button v-for="item in PRIORITIES" :key="item" type="button" :class="form.priority === item ? 'chip on' : 'chip'" @click="form.priority = item">{{ item }}</button>
-          </div>
-        </div>
-        <Field label="Descrição" class="span-2"><textarea v-model="form.description" class="input" /></Field>
       </div>
       <div v-else-if="modal === 'espaco'" class="form-grid">
         <Field label="Espaço" required><input v-model="form.name" class="input" /></Field>

@@ -56,6 +56,8 @@ function dataTable({ head, rows, widths, empty }) {
   return {
     table: {
       headerRows: 1,
+      // Cabeçalho nunca fica sozinho no fim da página: segue junto da primeira linha.
+      keepWithHeaderRows: 1,
       dontBreakRows: true,
       widths: widths || head.map(() => '*'),
       body: [

@@ -20,12 +20,8 @@ import CompanyDetail from './pages/CompanyDetail.vue'
 import Distribution from './pages/Distribution.vue'
 import Manifest from './pages/Manifest.vue'
 import MeetingDetail from './pages/MeetingDetail.vue'
-import EventMode from './pages/EventMode.vue'
+import Attendance from './pages/Attendance.vue'
 import Occurrences from './pages/Occurrences.vue'
-import Presence from './pages/Presence.vue'
-import Room from './pages/Room.vue'
-import Ticket from './pages/Ticket.vue'
-import Validate from './pages/Validate.vue'
 import Awards from './pages/Awards.vue'
 import Evaluate from './pages/Evaluate.vue'
 import JudgeArea from './pages/JudgeArea.vue'
@@ -63,6 +59,11 @@ function legacyTarget(current, currentParams) {
     return 'jurados'
   }
   if (current === 'empresas' && currentParams.aba === 'desafios') return 'desafios'
+  // Antigo Modo Evento: presença e ingressos agora ficam em Ingressos e Presença.
+  if (current === 'evento' || current === 'ingresso' || current === 'validar') {
+    return [1, 2, 3].includes(Number(currentParams.dia)) ? `presenca?dia=${currentParams.dia}` : 'presenca'
+  }
+  if (current === 'sala') return `setores?setor=${encodeURIComponent('Produção')}`
   return ''
 }
 
@@ -106,12 +107,8 @@ watch([path, params, () => hack.state.session, editor], () => {
     <MeetingDetail v-else-if="page === 'reuniao'" :params="params" />
     <Manifest v-else-if="page === 'manifestacao'" :params="params" />
     <Reports v-else-if="page === 'relatorios' || page === 'relatorio'" :params="params" />
-    <EventMode v-else-if="page === 'evento'" :params="params" />
-    <Ticket v-else-if="page === 'ingresso'" />
-    <Validate v-else-if="page === 'validar'" :params="params" />
-    <Presence v-else-if="page === 'presenca'" />
-    <Room v-else-if="page === 'sala'" :params="params" />
-    <Occurrences v-else-if="page === 'ocorrencias'" />
+    <Attendance v-else-if="page === 'presenca'" :params="params" />
+    <Occurrences v-else-if="page === 'ocorrencias'" :params="params" />
     <Judges v-else-if="page === 'jurados'" part="jurados" :params="params" />
     <Judges v-else-if="page === 'avaliacoes'" part="avaliacoes" :params="params" />
     <Judges v-else-if="page === 'votacao-gestao'" part="votacao" :params="params" />
