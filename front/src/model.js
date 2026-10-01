@@ -10,6 +10,81 @@ export const AVAILABILITY = ['Disponível', 'Indisponível', 'Desistente']
 
 export const SETORES = ['Recursos Humanos', 'Finanças', 'Marketing', 'Tecnologia', 'Produção']
 
+function money(value) {
+  if (value === '' || value == null) return '—'
+  const number = Number(value)
+  if (Number.isNaN(number)) return '—'
+  return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function qty(value) {
+  return { value: String(value || 0), raw: value || 0 }
+}
+
+export function sectorSummaries(state) {
+  const openFor = (name) => (state.tasks || []).filter((task) => task.sector === name && task.status !== 'Concluído').length
+  const incomes = (state.incomes || []).filter((item) => item.value !== '' && item.value != null)
+  const expenses = (state.expenses || []).filter((item) => (item.actual !== '' && item.actual != null) || (item.planned !== '' && item.planned != null))
+  const incomeTotal = incomes.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  const expenseTotal = expenses.reduce((sum, item) => sum + Number(item.actual !== '' && item.actual != null ? item.actual : item.planned || 0), 0)
+  const knownMoney = incomes.length + expenses.length
+  const contents = state.contents || []
+  const calls = (state.occurrences || []).filter((item) => item.category === 'Suporte' && item.status !== 'Resolvida' && item.status !== 'Concluído').length
+  const budget = state.event?.budget
+  return [
+    {
+      name: 'Recursos Humanos',
+      icon: 'users',
+      lines: [
+        { label: 'Integrantes', ...qty(state.orgMembers?.length) },
+        { label: 'Responsáveis', ...qty((state.orgMembers || []).filter((item) => item.func).length) },
+        { label: 'Participantes', ...qty(state.students?.length) },
+        { label: 'Pendências', ...qty(openFor('Recursos Humanos')), alert: true },
+      ],
+    },
+    {
+      name: 'Finanças',
+      icon: 'chart',
+      lines: [
+        { label: 'Orçamento', value: budget === '' || budget == null ? '—' : money(budget) },
+        { label: 'Receitas', value: incomes.length ? money(incomeTotal) : '—' },
+        { label: 'Despesas', value: expenses.length ? money(expenseTotal) : '—' },
+        { label: 'Saldo', value: knownMoney ? money(incomeTotal - expenseTotal) : '—' },
+      ],
+    },
+    {
+      name: 'Marketing',
+      icon: 'star',
+      lines: [
+        { label: 'Campanhas', ...qty(state.campaigns?.length) },
+        { label: 'Conteúdos', ...qty(contents.filter((item) => item.kind !== 'Material').length) },
+        { label: 'Materiais', ...qty(contents.filter((item) => item.kind === 'Material').length) },
+        { label: 'Pendências', ...qty(openFor('Marketing')), alert: true },
+      ],
+    },
+    {
+      name: 'Tecnologia',
+      icon: 'bolt',
+      lines: [
+        { label: 'Equipamentos', ...qty(state.equipment?.length) },
+        { label: 'Disponíveis', ...qty((state.equipment || []).filter((item) => item.status === 'Disponível').length) },
+        { label: 'Com problema', ...qty((state.equipment || []).filter((item) => item.status === 'Com problema').length), alert: true },
+        { label: 'Chamados abertos', ...qty(calls), alert: true },
+      ],
+    },
+    {
+      name: 'Produção',
+      icon: 'grid',
+      lines: [
+        { label: 'Espaços', ...qty(state.spaces?.length) },
+        { label: 'Materiais', ...qty(state.materials?.length) },
+        { label: 'Pendências', ...qty(openFor('Produção')), alert: true },
+        { label: 'Ocorrências', ...qty((state.occurrences || []).filter((item) => item.category !== 'Suporte').length), alert: true },
+      ],
+    },
+  ]
+}
+
 export const ACCOUNTS = {
   'admin@senac.br': {
     name: 'Usuário Demonstrativo',
@@ -70,8 +145,8 @@ const FULL_NAV = [
       { id: 'encerramento', label: 'Encerramento', icon: 'star', children: CLOSE_CHILDREN },
     ],
   },
-  { group: 'Administração', items: [{ id: 'usuarios', label: 'Usuários e Permissões', icon: 'users' }] },
   { group: 'Análise', items: [{ id: 'relatorios', label: 'Relatórios', icon: 'chart' }] },
+  { group: 'Administração', items: [{ id: 'usuarios', label: 'Usuários e Permissões', icon: 'users' }] },
 ]
 
 const EDITOR_NAV = [

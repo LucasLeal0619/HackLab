@@ -4,6 +4,7 @@ import { isAvailable, journeySteps } from '../model'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Page from '../components/Page.vue'
+import SectorSummary from '../components/SectorSummary.vue'
 import { toneFor } from '../components/tone'
 
 const { state } = useHack()
@@ -72,6 +73,7 @@ function statusLabel(status) {
         <p v-for="item in calls.slice(0, 3)" :key="item.id">{{ item.title }}</p>
       </article>
     </div>
+    <SectorSummary />
   </Page>
 
   <Page
@@ -150,5 +152,7 @@ function statusLabel(status) {
         </article>
       </div>
     </section>
+
+    <SectorSummary />
   </Page>
 </template>

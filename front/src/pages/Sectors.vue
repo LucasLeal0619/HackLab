@@ -97,10 +97,6 @@ function brl(value) {
   return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function dash(value) {
-  return value ? value : '—'
-}
-
 function matches(text, query) {
   return String(text || '').toLowerCase().includes(query.trim().toLowerCase())
 }
@@ -141,11 +137,7 @@ watch(sector, (name) => {
 })
 
 const pendencias = computed(() => state.tasks.filter((task) => task.sector === sector.value && task.status !== 'Concluído'))
-const openTasks = computed(() => pendencias.value.length)
-const knownIncomes = computed(() => state.incomes.filter((item) => item.value !== '' && item.value != null))
 const knownExpenses = computed(() => state.expenses.filter((item) => (item.actual !== '' && item.actual != null) || (item.planned !== '' && item.planned != null)))
-const incomeTotal = computed(() => knownIncomes.value.reduce((sum, item) => sum + Number(item.value || 0), 0))
-const expenseTotal = computed(() => knownExpenses.value.reduce((sum, item) => sum + Number(item.actual !== '' && item.actual != null ? item.actual : item.planned || 0), 0))
 const calls = computed(() => (state.occurrences || []).filter((item) => item.category === 'Suporte'))
 const suppliers = computed(() => state.suppliers || [])
 const contents = computed(() => state.contents || [])
@@ -177,49 +169,6 @@ const mine = computed(() => {
 const mineSet = computed(() => new Set(mine.value.filter((name) => SETORES.includes(name))))
 const primarySectors = computed(() => (mineSet.value.size ? SETORES.filter((name) => mineSet.value.has(name)) : SETORES))
 const otherSectors = computed(() => (mineSet.value.size ? SETORES.filter((name) => !mineSet.value.has(name)) : []))
-const kpis = computed(() => {
-  if (sector.value === 'Recursos Humanos') {
-    return [
-      { label: 'Integrantes', value: dash(state.orgMembers.length) },
-      { label: 'Responsáveis', value: dash(state.orgMembers.filter((item) => item.func).length) },
-      { label: 'Participantes', value: dash(state.students.length) },
-      { label: 'Pendências', value: dash(openTasks.value) },
-    ]
-  }
-  if (sector.value === 'Finanças') {
-    return [
-      { label: 'Orçamento previsto', value: state.event?.budget === '' || state.event?.budget == null ? '—' : brl(state.event.budget) },
-      { label: 'Receitas', value: knownIncomes.value.length ? brl(incomeTotal.value) : '—' },
-      { label: 'Despesas', value: knownExpenses.value.length ? brl(expenseTotal.value) : '—' },
-      { label: 'Saldo', value: knownIncomes.value.length + knownExpenses.value.length ? brl(incomeTotal.value - expenseTotal.value) : '—' },
-    ]
-  }
-  if (sector.value === 'Marketing') {
-    return [
-      { label: 'Campanhas', value: dash(state.campaigns.length) },
-      { label: 'Conteúdos', value: dash(contents.value.filter((item) => item.kind !== 'Material').length) },
-      { label: 'Materiais', value: dash(contents.value.filter((item) => item.kind === 'Material').length) },
-      { label: 'Pendências', value: dash(openTasks.value) },
-    ]
-  }
-  if (sector.value === 'Tecnologia') {
-    return [
-      { label: 'Equipamentos', value: dash(state.equipment.length) },
-      { label: 'Disponíveis', value: dash(state.equipment.filter((item) => item.status === 'Disponível').length) },
-      { label: 'Com problema', value: dash(state.equipment.filter((item) => item.status === 'Com problema').length) },
-      { label: 'Chamados abertos', value: dash(calls.value.filter((item) => item.status !== 'Resolvida' && item.status !== 'Concluído').length) },
-    ]
-  }
-  if (sector.value === 'Produção') {
-    return [
-      { label: 'Espaços', value: dash(state.spaces.length) },
-      { label: 'Materiais', value: dash(materials.value.length) },
-      { label: 'Pendências', value: dash(openTasks.value) },
-      { label: 'Ocorrências', value: dash((state.occurrences || []).filter((item) => item.category !== 'Suporte').length) },
-    ]
-  }
-  return null
-})
 const modalTitle = computed(() => (form.value.id ? EDIT_TITLES : NEW_TITLES)[modal.value])
 
 function selectSector(name) {
@@ -398,19 +347,6 @@ function editSchedule(item) {
       <button v-else-if="view === 'infra'" class="btn" @click="open('infra', { name: '', status: 'Não iniciado', responsible: '', notes: '' })">+ Novo item</button>
       <button v-else-if="view === 'operacao'" class="btn" @click="open('operacao', { name: '', description: '', status: 'Não iniciado' })">+ Novo item</button>
     </template>
-
-    <div class="sector-head">
-      <h2>{{ sector }}</h2>
-      <p>{{ COPY[sector] }}</p>
-    </div>
-
-    <div v-if="kpis" class="grid cols-4">
-      <article v-for="item in kpis" :key="item.label" class="card">
-        <h3>{{ item.label }}</h3>
-        <div class="stat-value">{{ item.value }}</div>
-        <p v-if="item.hint" class="stat-hint">{{ item.hint }}</p>
-      </article>
-    </div>
 
     <div class="stack-nav">
       <button v-for="item in SUB[sector]" :key="item.id" type="button" :class="view === item.id ? 'on' : ''" @click="view = item.id">{{ item.label }}</button>
