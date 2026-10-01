@@ -1,8 +1,9 @@
 <script setup>
 import { computed } from 'vue'
-import { isAvailable, journeySteps } from '../model'
+import { isAvailable, journeySteps, plural } from '../model'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
+import DashboardDomain from '../components/DashboardDomain.vue'
 import Page from '../components/Page.vue'
 import SectorSummary from '../components/SectorSummary.vue'
 import { toneFor } from '../components/tone'
@@ -13,7 +14,8 @@ const steps = computed(() => journeySteps(state))
 const done = computed(() => steps.value.filter((step) => step.status === 'concluida').length)
 const current = computed(() => steps.value.find((step) => step.status === 'andamento') || steps.value[steps.value.length - 1])
 const openTasks = computed(() => state.tasks.filter((task) => task.status !== 'Concluído').length)
-const openOcc = computed(() => state.occurrences.filter((item) => item.status !== 'Resolvida').length)
+const openOccList = computed(() => state.occurrences.filter((item) => item.status !== 'Resolvida'))
+const openOcc = computed(() => openOccList.value.length)
 const available = computed(() => state.students.filter(isAvailable).length)
 const present = computed(() => state.checkins.filter((item) => item.status === 'Presente').length)
 const finishedEvals = computed(() => state.evaluations.filter((item) => item.status === 'concluida').length)
@@ -22,16 +24,74 @@ const withoutTeam = computed(() => {
   const placed = new Set(state.teams.flatMap((team) => team.members || []))
   return state.students.filter((student) => isAvailable(student) && !placed.has(student.id)).length
 })
-const notices = computed(() => {
+const eventMeta = computed(() => [
+  state.event.date || 'Data a definir',
+  `${state.event.days || 3} dias`,
+  `${state.event.start || '08:00'}–${state.event.end || '12:00'}`,
+  state.event.location || 'Local a cadastrar',
+])
+const domains = computed(() => [
+  {
+    title: 'Preparação',
+    to: 'config',
+    action: 'Ver preparação',
+    items: [
+      { label: 'Participantes', value: state.students.length, to: 'participantes' },
+      { label: 'Disponíveis', value: available.value, to: 'participantes' },
+      { label: 'Equipes', value: state.teams.length, to: 'equipes' },
+      { label: 'Empresas', value: state.companies.length, to: 'empresas' },
+      { label: 'Desafios', value: state.challenges.length, to: 'desafios' },
+    ],
+  },
+  {
+    title: 'Gestão',
+    to: 'setores',
+    action: 'Ver gestão',
+    items: [
+      { label: 'Pendências', value: openTasks.value, to: 'pendencias' },
+      { label: 'Reuniões', value: state.meetings.length, to: 'reunioes' },
+      { label: 'Documentos', value: state.documents.length, to: 'documentos' },
+    ],
+  },
+  {
+    title: 'Evento',
+    to: 'evento',
+    action: 'Abrir Modo Evento',
+    items: [
+      { label: 'Presenças', value: present.value, to: 'presenca' },
+      { label: 'Ocorrências', value: openOcc.value, to: 'ocorrencias' },
+    ],
+  },
+  {
+    title: 'Encerramento',
+    to: 'jurados',
+    action: 'Ver encerramento',
+    items: [
+      { label: 'Avaliações', value: finishedEvals.value, to: 'avaliacoes' },
+      { label: 'Votos', value: votes.value, to: 'votacao-gestao' },
+    ],
+  },
+])
+// Atenção: problema/urgente primeiro, depois pendências, depois informação.
+const RANK = { bad: 0, warn: 1, info: 2 }
+const attention = computed(() => {
   const items = []
-  if (withoutTeam.value) items.push({ text: `${withoutTeam.value} participante${withoutTeam.value === 1 ? '' : 's'} ainda sem equipe`, to: 'equipes' })
-  if (openTasks.value) items.push({ text: `${openTasks.value} pendência${openTasks.value === 1 ? '' : 's'} aberta${openTasks.value === 1 ? '' : 's'}`, to: 'pendencias' })
-  if (state.teams.length && state.evaluations.length === 0) items.push({ text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
-  return items
+  const broken = state.equipment.filter((item) => item.status === 'Com problema').length
+  const urgent = openOccList.value.filter((item) => item.priority === 'Urgente').length
+  const otherOcc = openOcc.value - urgent
+  if (urgent) items.push({ tone: 'bad', text: plural(urgent, 'ocorrência urgente', 'ocorrências urgentes'), to: 'ocorrencias' })
+  if (broken) items.push({ tone: 'bad', text: plural(broken, 'equipamento com problema', 'equipamentos com problema'), to: 'setores?setor=Tecnologia' })
+  if (otherOcc) items.push({ tone: 'warn', text: plural(otherOcc, 'ocorrência aberta', 'ocorrências abertas'), to: 'ocorrencias' })
+  if (openTasks.value) items.push({ tone: 'warn', text: `${plural(openTasks.value, 'pendência precisa', 'pendências precisam')} de atenção`, to: 'pendencias' })
+  if (withoutTeam.value) items.push({ tone: 'warn', text: `${plural(withoutTeam.value, 'participante', 'participantes')} sem equipe`, to: 'equipes' })
+  if (state.teams.length && state.evaluations.length === 0) items.push({ tone: 'info', text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
+  return items.sort((x, y) => RANK[x.tone] - RANK[y.tone])
 })
 const sectors = computed(() => (state.session?.sectors?.length ? state.session.sectors : [state.session?.sector || 'Tecnologia']))
 const editorTasks = computed(() => state.tasks.filter((task) => sectors.value.includes(task.sector) && task.status !== 'Concluído'))
 const calls = computed(() => state.occurrences.filter((item) => item.category === 'Suporte' && item.status !== 'Resolvida'))
+
+const STEP_LABELS = ['Configurar evento', 'Participantes', 'Equipes', 'Empresas e desafios', 'Preparação operacional', 'Realizar evento', 'Encerramento']
 
 function statusLabel(status) {
   if (status === 'concluida') return 'Concluída'
@@ -73,86 +133,54 @@ function statusLabel(status) {
         <p v-for="item in calls.slice(0, 3)" :key="item.id">{{ item.title }}</p>
       </article>
     </div>
-    <SectorSummary />
+    <SectorSummary class="mt" />
   </Page>
 
   <Page
     v-else
     title="Dashboard"
-    :subtitle="profile === 'Consultor' ? 'Acompanhe a preparação, as equipes e o que precisa de atenção.' : 'Acompanhe a preparação do Hackathon e continue de onde parou.'"
+    subtitle="Acompanhe a organização e a situação atual do Hackathon."
   >
-    <section class="card journey-card">
-      <div class="row-between">
-        <div>
-          <p class="kicker">Preparação do Hackathon</p>
-          <h2>{{ done }} de 7 etapas concluídas</h2>
+    <div class="dashboard-cockpit">
+      <section class="card dash-block dashboard-progress" aria-labelledby="dash-progress">
+        <div class="dash-progress-main">
+          <div>
+            <p class="dash-event-meta">
+              <b>{{ state.event.name || 'Hackathon' }}</b>
+              <span v-for="item in eventMeta" :key="item">{{ item }}</span>
+            </p>
+            <h2 id="dash-progress" class="dash-progress-count"><strong>{{ done }}/{{ steps.length }}</strong> etapas concluídas</h2>
+          </div>
+          <button class="btn" type="button" @click="go(current.to)">Continuar organização</button>
         </div>
-        <button class="btn" type="button" @click="go(current.to)">Continuar organização</button>
-      </div>
-      <ol class="journey-steps">
-        <li v-for="(step, index) in steps" :key="step.label" :class="step.status">
-          <span>{{ index + 1 }}</span>
-          <b>{{ step.label }}</b>
-          <small>{{ statusLabel(step.status) }}</small>
-        </li>
-      </ol>
-    </section>
+        <ol class="dash-steps">
+          <li v-for="(step, index) in steps" :key="step.label" :class="step.status" :title="`${step.label} · ${statusLabel(step.status)}`">
+            <span class="dash-step-mark" aria-hidden="true">{{ step.status === 'concluida' ? '✓' : index + 1 }}</span>
+            {{ STEP_LABELS[index] || step.label }}
+            <span class="sr-only"> — {{ statusLabel(step.status) }}</span>
+          </li>
+        </ol>
+      </section>
 
-    <article class="card event-mini">
-      <div>
-        <p class="kicker">Hackathon</p>
-        <h3>{{ state.event.name || 'Hackathon' }}</h3>
+      <div class="dashboard-domain-grid">
+        <DashboardDomain v-for="item in domains" :key="item.title" v-bind="item" />
       </div>
-      <p>Data: {{ state.event.date || 'A definir' }}</p>
-      <p>{{ state.event.days || 3 }} dias</p>
-      <p>{{ state.event.start || '08:00' }} às {{ state.event.end || '12:00' }}</p>
-      <p>Local: {{ state.event.location || 'A cadastrar' }}</p>
-    </article>
 
-    <section class="mt">
-      <h3 class="ops-title">Preparação</h3>
-      <div class="grid cols-4">
-        <button class="card stat dash-link" type="button" @click="go('participantes')"><div class="stat-label">Participantes</div><div class="stat-value">{{ state.students.length }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('participantes')"><div class="stat-label">Disponíveis</div><div class="stat-value">{{ available }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('equipes')"><div class="stat-label">Equipes</div><div class="stat-value">{{ state.teams.length }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('empresas')"><div class="stat-label">Empresas</div><div class="stat-value">{{ state.companies.length }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('desafios')"><div class="stat-label">Desafios</div><div class="stat-value">{{ state.challenges.length }}</div></button>
+      <div class="dashboard-bottom">
+        <SectorSummary />
+        <section class="card dash-block dashboard-action-list" aria-labelledby="dash-attention">
+          <div class="dash-block-head">
+            <h2 id="dash-attention" class="dash-block-title">Atenção</h2>
+          </div>
+          <p v-if="attention.length === 0" class="dash-empty"><span class="dash-signal ok">Tudo em ordem</span> Nenhuma ação pendente.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="item in attention.slice(0, 3)" :key="item.text">
+              <a :href="`#/${item.to}`" @click.prevent="go(item.to)"><i class="dash-dot" :class="item.tone" aria-hidden="true" /><span>{{ item.text }}</span><span aria-hidden="true">→</span></a>
+            </li>
+          </ul>
+          <a v-if="attention.length > 3" class="dash-more" href="#/pendencias" @click.prevent="go('pendencias')">+ {{ attention.length - 3 }} {{ attention.length - 3 === 1 ? 'outra' : 'outras' }} · Ver todas →</a>
+        </section>
       </div>
-    </section>
-    <section class="mt">
-      <h3 class="ops-title">Gestão</h3>
-      <div class="grid cols-3">
-        <button class="card stat dash-link" type="button" @click="go('pendencias')"><div class="stat-label">Pendências</div><div class="stat-value">{{ openTasks }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('reunioes')"><div class="stat-label">Reuniões</div><div class="stat-value">{{ state.meetings.length }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('documentos')"><div class="stat-label">Documentos</div><div class="stat-value">{{ state.documents.length }}</div></button>
-      </div>
-    </section>
-    <section class="mt">
-      <h3 class="ops-title">Evento</h3>
-      <div class="grid cols-2">
-        <button class="card stat dash-link" type="button" @click="go('presenca')"><div class="stat-label">Presenças</div><div class="stat-value">{{ present }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('ocorrencias')"><div class="stat-label">Ocorrências</div><div class="stat-value">{{ openOcc }}</div></button>
-      </div>
-    </section>
-    <section class="mt">
-      <h3 class="ops-title">Encerramento</h3>
-      <div class="grid cols-2">
-        <button class="card stat dash-link" type="button" @click="go('avaliacoes')"><div class="stat-label">Avaliações</div><div class="stat-value">{{ finishedEvals }}</div></button>
-        <button class="card stat dash-link" type="button" @click="go('votacao-gestao')"><div class="stat-label">Votos</div><div class="stat-value">{{ votes }}</div></button>
-      </div>
-    </section>
-
-    <section class="mt">
-      <h3 class="ops-title">Próximas ações</h3>
-      <p v-if="notices.length === 0" class="stat-hint">Nenhuma ação pendente neste momento.</p>
-      <div v-else class="grid cols-3">
-        <article v-for="item in notices" :key="item.text" class="card">
-          <h3>{{ item.text }}</h3>
-          <button class="btn ghost small" type="button" @click="go(item.to)">Abrir</button>
-        </article>
-      </div>
-    </section>
-
-    <SectorSummary />
+    </div>
   </Page>
 </template>

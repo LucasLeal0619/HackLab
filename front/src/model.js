@@ -17,70 +17,58 @@ function money(value) {
   return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function qty(value) {
-  return { value: String(value || 0), raw: value || 0 }
+export function plural(count, one, many) {
+  return `${count} ${count === 1 ? one : many}`
 }
 
+// Visão por exceção de cada setor: um destaque e a situação que pede atenção.
 export function sectorSummaries(state) {
   const openFor = (name) => (state.tasks || []).filter((task) => task.sector === name && task.status !== 'Concluído').length
+  const pending = (name) => {
+    const count = openFor(name)
+    return count ? { text: plural(count, 'pendência', 'pendências'), tone: 'warn' } : { text: 'Normal', tone: 'ok' }
+  }
   const incomes = (state.incomes || []).filter((item) => item.value !== '' && item.value != null)
   const expenses = (state.expenses || []).filter((item) => (item.actual !== '' && item.actual != null) || (item.planned !== '' && item.planned != null))
   const incomeTotal = incomes.reduce((sum, item) => sum + Number(item.value || 0), 0)
   const expenseTotal = expenses.reduce((sum, item) => sum + Number(item.actual !== '' && item.actual != null ? item.actual : item.planned || 0), 0)
-  const knownMoney = incomes.length + expenses.length
-  const contents = state.contents || []
-  const calls = (state.occurrences || []).filter((item) => item.category === 'Suporte' && item.status !== 'Resolvida' && item.status !== 'Concluído').length
-  const budget = state.event?.budget
+  const balance = incomes.length + expenses.length ? incomeTotal - expenseTotal : null
+  const occurrences = state.occurrences || []
+  const open = (item) => item.status !== 'Resolvida' && item.status !== 'Concluído'
+  const calls = occurrences.filter((item) => item.category === 'Suporte' && open(item)).length
+  const broken = (state.equipment || []).filter((item) => item.status === 'Com problema').length
+  const prodOcc = occurrences.filter((item) => item.category !== 'Suporte' && open(item)).length
   return [
     {
       name: 'Recursos Humanos',
       icon: 'users',
-      lines: [
-        { label: 'Integrantes', ...qty(state.orgMembers?.length) },
-        { label: 'Responsáveis', ...qty((state.orgMembers || []).filter((item) => item.func).length) },
-        { label: 'Participantes', ...qty(state.students?.length) },
-        { label: 'Pendências', ...qty(openFor('Recursos Humanos')), alert: true },
-      ],
+      highlight: plural(state.orgMembers?.length || 0, 'integrante', 'integrantes'),
+      status: pending('Recursos Humanos'),
     },
     {
       name: 'Finanças',
       icon: 'chart',
-      lines: [
-        { label: 'Orçamento', value: budget === '' || budget == null ? '—' : money(budget) },
-        { label: 'Receitas', value: incomes.length ? money(incomeTotal) : '—' },
-        { label: 'Despesas', value: expenses.length ? money(expenseTotal) : '—' },
-        { label: 'Saldo', value: knownMoney ? money(incomeTotal - expenseTotal) : '—' },
-      ],
+      highlight: `Saldo ${balance == null ? '—' : money(balance)}`,
+      status: balance != null && balance < 0 ? { text: 'Saldo negativo', tone: 'bad' } : pending('Finanças'),
     },
     {
       name: 'Marketing',
       icon: 'star',
-      lines: [
-        { label: 'Campanhas', ...qty(state.campaigns?.length) },
-        { label: 'Conteúdos', ...qty(contents.filter((item) => item.kind !== 'Material').length) },
-        { label: 'Materiais', ...qty(contents.filter((item) => item.kind === 'Material').length) },
-        { label: 'Pendências', ...qty(openFor('Marketing')), alert: true },
-      ],
+      highlight: plural(state.campaigns?.length || 0, 'campanha', 'campanhas'),
+      status: pending('Marketing'),
     },
     {
       name: 'Tecnologia',
       icon: 'bolt',
-      lines: [
-        { label: 'Equipamentos', ...qty(state.equipment?.length) },
-        { label: 'Disponíveis', ...qty((state.equipment || []).filter((item) => item.status === 'Disponível').length) },
-        { label: 'Com problema', ...qty((state.equipment || []).filter((item) => item.status === 'Com problema').length), alert: true },
-        { label: 'Chamados abertos', ...qty(calls), alert: true },
-      ],
+      highlight: broken ? plural(broken, 'com problema', 'com problema') : plural(state.equipment?.length || 0, 'equipamento', 'equipamentos'),
+      highlightTone: broken ? 'bad' : '',
+      status: calls ? { text: plural(calls, 'chamado aberto', 'chamados abertos'), tone: 'warn' } : pending('Tecnologia'),
     },
     {
       name: 'Produção',
       icon: 'grid',
-      lines: [
-        { label: 'Espaços', ...qty(state.spaces?.length) },
-        { label: 'Materiais', ...qty(state.materials?.length) },
-        { label: 'Pendências', ...qty(openFor('Produção')), alert: true },
-        { label: 'Ocorrências', ...qty((state.occurrences || []).filter((item) => item.category !== 'Suporte').length), alert: true },
-      ],
+      highlight: plural(state.spaces?.length || 0, 'espaço', 'espaços'),
+      status: prodOcc ? { text: plural(prodOcc, 'ocorrência', 'ocorrências'), tone: 'warn' } : pending('Produção'),
     },
   ]
 }

@@ -10,20 +10,20 @@ const link = (name) => `setores?setor=${encodeURIComponent(name)}`
 </script>
 
 <template>
-  <section class="mt">
-    <h3 class="ops-title">Resumo dos Setores</h3>
-    <p class="stat-hint">Acompanhe rapidamente a situação das áreas responsáveis pela organização.</p>
-    <div class="sector-grid">
-      <a v-for="item in summaries" :key="item.name" class="card sector-card" :href="`#/${link(item.name)}`" @click.prevent="go(link(item.name))">
-        <span class="sector-card-head"><Icon :name="item.icon" :size="18" /><strong>{{ item.name }}</strong></span>
-        <dl class="sector-lines">
-          <div v-for="line in item.lines" :key="line.label">
-            <dt>{{ line.label }}</dt>
-            <dd>{{ line.value }}<i v-if="line.alert && line.raw > 0" class="sector-alert" title="Requer atenção" aria-label="Requer atenção" /></dd>
-          </div>
-        </dl>
-        <span class="sector-go">Ver setor →</span>
-      </a>
+  <section class="card dash-block dashboard-sector-overview" aria-labelledby="dash-sectors">
+    <div class="dash-block-head">
+      <h2 id="dash-sectors" class="dash-block-title">Resumo dos Setores</h2>
+      <a class="dash-more" href="#/setores" @click.prevent="go('setores')">Ver setores →</a>
     </div>
+    <ul class="dash-sector-list">
+      <li v-for="item in summaries" :key="item.name">
+        <a class="dash-sector-row" :href="`#/${link(item.name)}`" @click.prevent="go(link(item.name))">
+          <span class="dash-sector-name"><Icon :name="item.icon" :size="16" />{{ item.name }}</span>
+          <span class="dash-sector-highlight" :class="item.highlightTone">{{ item.highlight }}</span>
+          <span class="dash-signal" :class="item.status.tone">{{ item.status.text }}</span>
+          <Icon class="dash-sector-go" name="chevron" :size="14" />
+        </a>
+      </li>
+    </ul>
   </section>
 </template>
