@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { SETORES, uid } from '../model'
+import { inScope, sectorScope } from '../access'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
@@ -89,10 +90,14 @@ const crumb = computed(() => (tab.value === 'reunioes'
   ? 'HackLab / Gestão / Reuniões e Pendências'
   : `HackLab / Gestão / Reuniões e Pendências / ${TAB_LABELS[tab.value]}`))
 
+// Editor vê pendências e documentos apenas dos setores atribuídos.
+const sectorOptions = computed(() => sectorScope(state.session) || SETORES)
+const scopedTasks = computed(() => state.tasks.filter((item) => inScope(state.session, item.sector)))
+const scopedDocs = computed(() => state.documents.filter((item) => inScope(state.session, item.sector)))
 const meetings = computed(() => state.meetings.filter((item) => item.title.toLowerCase().includes(query.value.toLowerCase()) && (!status.value || item.status === status.value)))
 const atas = computed(() => state.meetings.filter((item) => item.ata && item.title.toLowerCase().includes(query.value.toLowerCase()) && (!status.value || item.ata.status === status.value)))
 const decisions = computed(() => state.decisions.filter((item) => item.title.toLowerCase().includes(query.value.toLowerCase()) && (!status.value || item.status === status.value)))
-const tasks = computed(() => state.tasks.filter((item) => {
+const tasks = computed(() => scopedTasks.value.filter((item) => {
   const due = dueInfo(item).label
   return item.title.toLowerCase().includes(query.value.toLowerCase())
     && (!status.value || item.status === status.value)
@@ -100,15 +105,15 @@ const tasks = computed(() => state.tasks.filter((item) => {
     && (!priority.value || item.priority === priority.value)
     && (!prazo.value || prazo.value === due)
 }))
-const docs = computed(() => state.documents.filter((item) => item.name.toLowerCase().includes(query.value.toLowerCase()) && (docCatFilter.value === 'Todos' || docCat(item) === docCatFilter.value)))
+const docs = computed(() => scopedDocs.value.filter((item) => item.name.toLowerCase().includes(query.value.toLowerCase()) && (docCatFilter.value === 'Todos' || docCat(item) === docCatFilter.value)))
 const upcoming = computed(() => state.meetings.filter((item) => item.status === 'Agendada').length)
 const atasPendentes = computed(() => state.meetings.filter((item) => item.ata?.status === 'Aguardando manifestações' || (!item.ata && item.status !== 'Realizada')).length)
-const pendingTasks = computed(() => state.tasks.filter((item) => item.status === 'Pendente').length)
-const doingTasks = computed(() => state.tasks.filter((item) => item.status === 'Em andamento').length)
-const lateTasks = computed(() => state.tasks.filter((item) => dueInfo(item).label === 'Atrasado').length)
-const doneTasks = computed(() => state.tasks.filter((item) => item.status === 'Concluído').length)
-const recentDocs = computed(() => state.documents.filter((item) => item.date && item.date !== 'Data demonstrativa').length)
-const pendingDocs = computed(() => state.documents.filter((item) => !item.fileName).length)
+const pendingTasks = computed(() => scopedTasks.value.filter((item) => item.status === 'Pendente').length)
+const doingTasks = computed(() => scopedTasks.value.filter((item) => item.status === 'Em andamento').length)
+const lateTasks = computed(() => scopedTasks.value.filter((item) => dueInfo(item).label === 'Atrasado').length)
+const doneTasks = computed(() => scopedTasks.value.filter((item) => item.status === 'Concluído').length)
+const recentDocs = computed(() => scopedDocs.value.filter((item) => item.date && item.date !== 'Data demonstrativa').length)
+const pendingDocs = computed(() => scopedDocs.value.filter((item) => !item.fileName).length)
 const activeUsers = computed(() => state.users.filter((user) => user.status === 'Ativo'))
 
 const detailMeeting = computed(() => {
@@ -448,7 +453,7 @@ function askRemove(kind, id, name) {
       <template v-if="tab === 'pendencias'">
         <select v-model="sector" class="input" aria-label="Setor">
           <option value="">Setor</option>
-          <option v-for="item in SETORES" :key="item">{{ item }}</option>
+          <option v-for="item in sectorOptions" :key="item">{{ item }}</option>
         </select>
         <select v-model="status" class="input" aria-label="Status">
           <option value="">Status</option>
@@ -738,7 +743,7 @@ function askRemove(kind, id, name) {
       <Field label="Responsável"><input v-model="form.responsible" class="input" /></Field>
       <Field label="Setor">
         <select v-model="form.sector" class="input">
-          <option v-for="item in SETORES" :key="item">{{ item }}</option>
+          <option v-for="item in sectorOptions" :key="item">{{ item }}</option>
         </select>
       </Field>
       <Field label="Status">
@@ -755,7 +760,7 @@ function askRemove(kind, id, name) {
       <Field label="Setor">
         <select v-model="form.sector" class="input">
           <option value="">Selecione o setor</option>
-          <option v-for="item in SETORES" :key="item">{{ item }}</option>
+          <option v-for="item in sectorOptions" :key="item">{{ item }}</option>
         </select>
       </Field>
       <Field label="Responsável">
@@ -797,7 +802,7 @@ function askRemove(kind, id, name) {
       <Field label="Setor">
         <select v-model="form.sector" class="input">
           <option value="">Opcional</option>
-          <option v-for="item in SETORES" :key="item">{{ item }}</option>
+          <option v-for="item in sectorOptions" :key="item">{{ item }}</option>
         </select>
       </Field>
       <Field label="Versão"><input v-model="form.version" class="input" /></Field>

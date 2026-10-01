@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { PROFILE_NAMES, profileConfig } from '../access'
 import { SETORES, uid } from '../model'
 import { useHack } from '../store'
 import Badge from '../components/Badge.vue'
@@ -13,25 +14,35 @@ defineProps({
   section: { type: String, default: 'evento' },
 })
 
+// Matriz demonstrativa: Administrador, Consultor, Editor, Validador, Jurado, Votante.
 const MATRIX = [
-  ['Dashboard', 'Permitido', 'Permitido', 'Permitido'],
-  ['Configuração', 'Permitido', 'Consulta', 'Sem acesso'],
-  ['Pessoas', 'Permitido', 'Permitido', 'Permitido'],
-  ['Equipes', 'Permitido', 'Permitido', 'Permitido'],
-  ['Empresas', 'Permitido', 'Permitido', 'Permitido'],
-  ['Desafios', 'Permitido', 'Permitido', 'Permitido'],
-  ['Setores', 'Todos', 'Consulta', 'Autorizados'],
-  ['Ingressos e Presença', 'Permitido', 'Permitido', 'Permitido'],
-  ['Ocorrências', 'Permitido', 'Permitido', 'Permitido'],
-  ['Painel de Resultados', 'Permitido', 'Permitido', 'Consulta'],
-  ['Reuniões e Atas', 'Permitido', 'Permitido', 'Permitido'],
-  ['Documentos', 'Permitido', 'Permitido', 'Permitido'],
-  ['Relatórios', 'Permitido', 'Permitido', 'Consulta'],
-  ['Usuários e Permissões', 'Permitido', 'Sem acesso', 'Sem acesso'],
-  ['Auditoria', 'Permitido', 'Sem acesso', 'Sem acesso'],
+  ['Dashboard', 'Permitido', 'Permitido', 'Do setor', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Evento (configuração)', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Participantes e Equipes', 'Permitido', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Empresas e Desafios', 'Permitido', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Setores', 'Todos', 'Todos', 'Atribuídos', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Reuniões', 'Permitido', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Pendências, Ocorrências e Documentos', 'Todos', 'Todos', 'Do setor', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Ingressos e Presença', 'Permitido', 'Permitido', 'Sem acesso', 'Permitido', 'Sem acesso', 'Sem acesso'],
+  ['Jurados e Votação (gestão)', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Avaliações', 'Permitido', 'Consulta', 'Sem acesso', 'Sem acesso', 'Próprias', 'Sem acesso'],
+  ['Resultados', 'Permitido', 'Consulta', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Votação do Público', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Votar'],
+  ['Relatórios', 'Permitido', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
+  ['Usuários e Permissões', 'Permitido', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso', 'Sem acesso'],
 ]
 
-const emptyUser = { name: '', email: '', profile: 'Editor', status: 'Ativo', sector: '', sectors: [], role: '', password: '' }
+// Campos do cadastro que cada perfil usa (perfil, setor e função são independentes).
+const USER_FIELDS = {
+  Administrador: { sector: false, role: true, roleHint: 'Ex.: Equipe de TI', company: false },
+  Consultor: { sector: 'optional', role: true, roleHint: 'Ex.: Professor / Coordenação', company: false },
+  Editor: { sector: 'required', role: true, roleHint: 'Ex.: Líder do setor, Registro audiovisual', company: false },
+  Validador: { sector: false, role: true, roleHint: 'Ex.: Check-in / Controle de acesso', company: false },
+  Jurado: { sector: false, role: true, roleHint: 'Ex.: Representante da empresa', company: true },
+  Votante: { sector: false, role: false, roleHint: '', company: false },
+}
+
+const emptyUser = { name: '', email: '', profile: 'Editor', status: 'Ativo', sector: '', sectors: [], role: '', companyId: '', password: '' }
 
 const { state, update, flash } = useHack()
 const admin = computed(() => state.session?.profile === 'Administrador')
@@ -42,6 +53,13 @@ const user = ref({ ...emptyUser })
 const query = ref('')
 const profile = ref('Todos')
 const showPassword = ref(false)
+const fields = computed(() => USER_FIELDS[user.value.profile] || USER_FIELDS.Administrador)
+
+function scopeLabel(item) {
+  const sectors = item.profile === 'Editor' ? (item.sectors?.length ? item.sectors : [item.sector]).filter(Boolean).join(', ') : item.sector
+  const company = item.profile === 'Jurado' ? state.companies.find((entry) => entry.id === item.companyId)?.name : ''
+  return [sectors, company, item.role].filter(Boolean).join(' · ') || '—'
+}
 
 const visible = computed(() => state.users.filter((item) => {
   const text = `${item.name} ${item.email}`.toLowerCase().includes(query.value.toLowerCase())
@@ -69,8 +87,12 @@ function openEdit(item) {
 function saveUser(event) {
   event?.preventDefault?.()
   const password = (user.value.password || '').trim()
-  if (!user.value.name.trim() || !user.value.email.trim() || !user.value.sector || !user.value.role.trim()) {
-    flash('Preencha nome, e-mail, setor e função.', 'err')
+  if (!user.value.name.trim() || !user.value.email.trim()) {
+    flash('Preencha nome e e-mail.', 'err')
+    return
+  }
+  if (fields.value.sector === 'required' && !(user.value.sectors?.length)) {
+    flash('Selecione ao menos um setor para o Editor.', 'err')
     return
   }
   if (!user.value.id && password.length < 4) {
@@ -82,9 +104,11 @@ function saveUser(event) {
     return
   }
   update((draft) => {
-    const sectors = user.value.profile === 'Editor'
-      ? (user.value.sectors?.length ? user.value.sectors : [user.value.sector])
-      : (user.value.sectors || [])
+    const sectors = user.value.profile === 'Editor' ? [...user.value.sectors] : []
+    if (user.value.profile === 'Editor') user.value.sector = sectors[0]
+    if (!fields.value.sector) user.value.sector = ''
+    if (!fields.value.role) user.value.role = ''
+    if (!fields.value.company) user.value.companyId = ''
     if (user.value.id) {
       const index = draft.users.findIndex((item) => item.id === user.value.id)
       if (index >= 0) {
@@ -157,19 +181,18 @@ function toggleSector(item) {
       <div class="filters">
         <input v-model="query" class="input" placeholder="Buscar usuário" />
         <select v-model="profile" class="input">
-          <option v-for="item in ['Todos', 'Administrador', 'Consultor', 'Editor']" :key="item">{{ item }}</option>
+          <option v-for="item in ['Todos', ...PROFILE_NAMES]" :key="item">{{ item }}</option>
         </select>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Setor</th><th>Função</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Setor/Função</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             <tr v-for="item in visible" :key="item.id">
               <td>{{ item.name }}</td>
               <td>{{ item.email }}</td>
               <td>{{ item.profile }}</td>
-              <td>{{ item.sector }}</td>
-              <td>{{ item.role }}</td>
+              <td>{{ scopeLabel(item) }}</td>
               <td><Badge :tone="toneFor(item.status)">{{ item.status }}</Badge></td>
               <td>
                 <button class="btn ghost small" type="button" @click="user = { ...item }; modal = 'detalhe'">Ver</button>
@@ -185,7 +208,7 @@ function toggleSector(item) {
     <Modal v-if="modal === 'matriz'" title="Matriz de acesso" subtitle="Representação visual da estrutura geral de acesso. As permissões detalhadas serão definidas nas specs de cada módulo." wide @close="modal = null">
       <div class="table-wrap">
         <table class="matrix">
-          <thead><tr><th>Módulo</th><th>Administrador</th><th>Consultor</th><th>Editor</th></tr></thead>
+          <thead><tr><th>Módulo</th><th v-for="name in PROFILE_NAMES" :key="name">{{ name }}</th></tr></thead>
           <tbody>
             <tr v-for="row in MATRIX" :key="row[0]">
               <td v-for="(cell, index) in row" :key="`${row[0]}-${index}`">{{ cell }}</td>
@@ -196,25 +219,31 @@ function toggleSector(item) {
       <template #footer><button class="btn" type="button" @click="modal = null">Fechar</button></template>
     </Modal>
 
-    <Modal v-if="modal === 'user'" :title="user.id ? 'Editar usuário' : 'Novo usuário'" subtitle="Administrador, Consultor ou Editor." @close="modal = null">
+    <Modal v-if="modal === 'user'" :title="user.id ? 'Editar usuário' : 'Novo usuário'" :subtitle="profileConfig(user.profile).represents" @close="modal = null">
       <div class="form-grid">
         <Field label="Nome completo" required><input v-model="user.name" class="input" /></Field>
         <Field label="E-mail" required><input v-model="user.email" class="input" /></Field>
         <Field label="Perfil de acesso" required>
           <select v-model="user.profile" class="input">
-            <option v-for="item in ['Administrador', 'Consultor', 'Editor']" :key="item">{{ item }}</option>
+            <option v-for="item in PROFILE_NAMES" :key="item">{{ item }}</option>
           </select>
         </Field>
         <Field label="Status">
           <select v-model="user.status" class="input"><option>Ativo</option><option>Inativo</option></select>
         </Field>
-        <Field label="Setor" required hint="Setor principal de atuação.">
+        <Field v-if="fields.sector === 'optional'" label="Setor" hint="Opcional para Consultor.">
           <select v-model="user.sector" class="input">
-            <option value="">Selecione</option>
-            <option v-for="item in ['Gestão Geral', 'Acompanhamento', ...SETORES]" :key="item">{{ item }}</option>
+            <option value="">Nenhum</option>
+            <option v-for="item in ['Acompanhamento', ...SETORES]" :key="item">{{ item }}</option>
           </select>
         </Field>
-        <Field label="Função" required hint="Função exercida no Hackathon (independente do perfil)."><input v-model="user.role" class="input" placeholder="Ex.: Apoio técnico" /></Field>
+        <Field v-if="fields.company" label="Empresa / representação" hint="Relaciona o jurado a uma empresa cadastrada.">
+          <select v-model="user.companyId" class="input">
+            <option value="">Nenhuma</option>
+            <option v-for="item in state.companies" :key="item.id" :value="item.id">{{ item.name }}</option>
+          </select>
+        </Field>
+        <Field v-if="fields.role" label="Função" hint="Função exercida no Hackathon (independente do perfil)."><input v-model="user.role" class="input" :placeholder="fields.roleHint" /></Field>
         <Field :label="user.id ? 'Nova senha' : 'Senha'" :required="!user.id" class-name="span-2" :hint="user.id ? 'Deixe em branco para manter a senha atual.' : 'Mínimo de 4 caracteres. Fica salva só neste navegador.'">
           <div class="input-icon">
             <Icon name="lock" :size="16" />
@@ -222,11 +251,13 @@ function toggleSector(item) {
             <button type="button" class="eye" :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'" @click="showPassword = !showPassword"><Icon name="eye" :size="16" /></button>
           </div>
         </Field>
-        <Field v-if="user.profile === 'Editor'" label="Setores permitidos" class-name="span-2" hint="Selecione um ou mais setores em que este Editor poderá trabalhar.">
+        <div v-if="fields.sector === 'required'" class="field span-2">
+          <span>Setores atribuídos<em>*</em></span>
+          <small class="stat-hint">O Editor enxerga apenas estes setores. Liderar um setor não torna o usuário Administrador.</small>
           <div class="chips">
             <button v-for="item in SETORES" :key="item" type="button" class="chip" :class="{ on: user.sectors?.includes(item) }" @click="toggleSector(item)">{{ item }}</button>
           </div>
-        </Field>
+        </div>
       </div>
       <template #footer>
         <button class="btn ghost" type="button" @click="modal = null">Cancelar</button>
@@ -235,7 +266,7 @@ function toggleSector(item) {
     </Modal>
 
     <Modal v-if="modal === 'detalhe'" title="Detalhes do usuário" :subtitle="user.email" @close="modal = null">
-      <p><b>Nome</b> {{ user.name }}<br /><b>Perfil</b> {{ user.profile }}<br /><b>Setor</b> {{ user.sector }}<br /><b>Função</b> {{ user.role }}<br /><b>Status</b> <Badge :tone="toneFor(user.status)">{{ user.status }}</Badge></p>
+      <p><b>Nome</b> {{ user.name }}<br /><b>Perfil</b> {{ user.profile }}<br /><b>Setor/Função</b> {{ scopeLabel(user) }}<br /><b>Status</b> <Badge :tone="toneFor(user.status)">{{ user.status }}</Badge></p>
       <p v-if="user.status === 'Inativo'">Este usuário não tem acesso ao HackLab enquanto estiver inativo.</p>
       <button v-if="admin && user.status === 'Ativo'" class="btn danger small" type="button" @click="modal = 'off'">Desativar usuário</button>
       <button v-if="admin && user.status === 'Inativo'" class="btn small" type="button" @click="update((draft) => { const found = draft.users.find((item) => item.id === user.id); if (found) found.status = 'Ativo' }); user = { ...user, status: 'Ativo' }; flash('Usuário ativado.'); modal = 'detalhe'">Ativar usuário</button>

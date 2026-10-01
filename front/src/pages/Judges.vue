@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { canAccess } from '../access'
 import { companyOf, teamChallenge, teamName, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
@@ -202,7 +203,7 @@ function removeRecord() {
   <Page :title="heading[0]" :subtitle="heading[1]">
     <template #actions>
       <button v-if="showJudgesBlock && showAdmin" class="btn" type="button" @click="openJudge">+ Adicionar jurado</button>
-      <button v-else-if="showEvalBlock && showAdmin" class="btn" type="button" @click="go('area-jurado')">Abrir Área do Jurado</button>
+      <button v-else-if="showEvalBlock && showAdmin && canAccess(state.session?.profile, 'area-jurado')" class="btn" type="button" @click="go('area-jurado')">Abrir Área do Jurado</button>
     </template>
 
     <template v-if="showAdmin">

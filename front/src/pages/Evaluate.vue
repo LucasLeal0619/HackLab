@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { profileConfig } from '../access'
 import { companyOf, teamChallenge, teamName, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
@@ -28,6 +29,8 @@ const team = computed(() => state.teams.find((item) => item.id === Number(props.
 const meta = computed(() => (team.value ? teamLabel(team.value) : { challenge: null, company: null }))
 const criteria = computed(() => state.criteria.filter((item) => item.active !== false && item.status !== 'Inativo'))
 const judgeName = computed(() => state.session?.name || 'Jurado')
+// Correção administrativa é ação da organização, não do jurado.
+const canCorrect = computed(() => Boolean(profileConfig(state.session?.profile).adminTools))
 const existing = computed(() => (team.value ? state.evaluations.find((item) => item.teamId === team.value.id && item.judgeName === judgeName.value) : null))
 
 const initialExisting = team.value
@@ -88,7 +91,7 @@ function applyCorrection() {
 <template>
   <Page v-if="team" :crumbs="`Área do Jurado / ${teamName(team.id)}`" :title="`Avaliar ${teamName(team.id)}`" subtitle="Preencha os critérios e finalize a avaliação.">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('area-jurado')">Voltar às equipes</button>
+      <button class="btn ghost" type="button" @click="go('area-jurado')">Voltar às avaliações</button>
     </template>
     <div class="eval-head">
       <div>
@@ -123,9 +126,10 @@ function applyCorrection() {
     </div>
     <Field label="Observações"><textarea v-model="notes" class="input" :disabled="locked" /></Field>
     <div v-if="locked" class="page-actions">
-      <button class="btn ghost" type="button" @click="correct = true">Corrigir avaliação</button>
+      <p class="stat-hint">Avaliação finalizada.</p>
+      <button v-if="canCorrect" class="btn ghost" type="button" @click="correct = true">Corrigir avaliação</button>
     </div>
-    <div v-else class="page-actions">
+    <div v-else class="page-actions eval-actions">
       <button class="btn ghost" type="button" :disabled="!criteria.length" @click="persist('rascunho')">Salvar rascunho</button>
       <button class="btn" type="button" :disabled="!criteria.length" @click="ask = true">Finalizar avaliação</button>
     </div>

@@ -948,11 +948,6 @@ td .btn + .btn, td .btn + button { margin-left: 8px; }
 }
 .vote-admin .card { background: #fff; }
 .vote-qr { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-.vote-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.vote-card h3 { font-size: 16px; }
-.vote-card p { margin: 2px 0; font-size: 13px; }
-.vote-card { display: flex; flex-direction: column; height: 100%; }
-.vote-card .btn { margin-top: auto; }
 .results-mark {
   width: 72px;
   height: 72px;
@@ -1098,7 +1093,6 @@ html.contrast .nav-item.active { box-shadow: inset 3px 0 0 #fff; }
 .present-nav { display: flex; justify-content: center; align-items: center; gap: 16px; }
 .matrix td, .matrix th { font-size: 13px; }
 .vote-public { min-height: 100vh; background: var(--bg); padding: 28px 16px 48px; }
-.vote-wrap { width: min(1100px, 100%); margin: 0 auto; }
 .error { color: var(--danger); font-size: 13px; margin: 0 0 8px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
@@ -1237,3 +1231,116 @@ html.contrast .nav-item.active { box-shadow: inset 3px 0 0 #fff; }
 .sector-occ { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .sector-occ h3 { margin: 0 0 4px; }
 .sector-occ p { margin: 0 0 4px; }
+
+/* Perfis de acesso: menu "Meu perfil" e experiências focadas (Validador, Jurado, Votante). */
+.profile-menu { width: min(380px, calc(100vw - 32px)); max-height: min(82vh, 640px); }
+.profile-back { display: none; }
+.profile-who { display: flex; flex-direction: column; margin: 0 0 10px; }
+.profile-who span { color: var(--muted); font-size: 13px; }
+.profile-current { display: grid; gap: 2px; margin: 0 0 8px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--info-bg); }
+.profile-current span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.profile-current b { color: var(--blue); }
+.profile-current small { color: var(--muted); }
+.profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.profile-option { min-height: 40px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: #fff; color: var(--text); font-weight: 600; }
+.profile-option:hover { border-color: var(--blue); }
+.profile-option.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.profile-label { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+.profile-menu .chips { margin-bottom: 10px; }
+.profile-menu .menu-list { border-top: 1px solid var(--line); padding-top: 6px; }
+
+.focus-shell .focus-bar { position: sticky; top: 0; z-index: 20; gap: 12px; }
+.focus-title { margin-right: auto; font-size: 16px; }
+.focus-tools { margin-left: 0; }
+.focus-shell main { width: min(1180px, calc(100% - 32px)); padding: 20px 0 48px; }
+
+/* Área do Jurado (tablet first) */
+.judge-home { max-width: 860px; margin: 0 auto; }
+.judge-head h1 { margin: 0; font-size: 26px; }
+.judge-head p { margin: 4px 0 16px; color: var(--muted); }
+.judge-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.judge-card { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 16px 18px; }
+.judge-card h2 { margin: 0; font-size: 18px; }
+.judge-card p { margin: 2px 0 0; }
+.judge-card .btn { min-height: 48px; min-width: 132px; }
+.eval-actions { position: sticky; bottom: 0; z-index: 5; justify-content: flex-end; padding: 12px 0; background: linear-gradient(to top, var(--bg) 70%, transparent); }
+.eval-actions .btn { min-height: 48px; }
+
+/* Votação do Público (mobile first) */
+.vote-wrap { width: min(1100px, 100%); margin: 0 auto; }
+.vote-head h1 { margin: 0; font-size: 24px; }
+.vote-head p { margin: 4px 0 16px; color: var(--muted); font-size: 16px; }
+.vote-board { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 12px; }
+.vote-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; }
+.vote-card h2 { margin: 0; font-size: 20px; color: var(--blue); }
+.vote-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0; font-size: 14px; }
+.vote-card dt { color: var(--muted); }
+.vote-card dd { margin: 0; font-weight: 600; }
+.vote-summary { margin: 0; font-size: 15px; line-height: 1.5; }
+.vote-btn { width: 100%; min-height: 52px; font-size: 16px; margin-top: auto; }
+.vote-confirm { margin: 0; font-size: 20px; font-weight: 700; color: var(--blue); }
+.vote-done { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 40px 20px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.vote-done h2 { margin: 8px 0 0; font-size: 22px; }
+.vote-done p { margin: 0; color: var(--muted); }
+.vote-check { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--ok-bg); color: var(--ok); font-size: 30px; font-weight: 700; }
+@media (min-width: 768px) {
+  .vote-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px) {
+  .vote-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Ingressos e Presença: cards no celular */
+.attendance-cards { display: none; list-style: none; margin: 0; padding: 0; gap: 10px; }
+.attendance-card { display: grid; gap: 4px; padding: 14px 16px; }
+.attendance-card p { margin: 0; color: var(--muted); font-size: 14px; }
+.attendance-card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.attendance-card-actions { display: flex; gap: 8px; margin-top: 8px; }
+.attendance-card-actions .btn { flex: 1; min-height: 44px; }
+
+/* Dashboard do Editor */
+.editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.editor-cockpit .dash-actions a { justify-content: space-between; }
+
+/* Tablet: 768–1199px */
+@media (max-width: 1199px) {
+  .eval-row { grid-template-columns: 1fr; align-items: stretch; }
+  .eval-row .input { min-height: 48px; font-size: 16px; }
+  .eval-head { flex-direction: column; }
+}
+
+/* Ingressos e Presença em tablet e celular: cards e áreas de toque maiores. */
+@media (max-width: 1199px) {
+  .page:has(.attendance-bar) .page-actions .btn, .attendance-bar .tabs button { min-height: 48px; }
+  .attendance-search { min-height: 48px; }
+}
+@media (max-width: 1023px) {
+  .attendance-table-wrap { display: none; }
+  .attendance-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .attendance-cards { grid-template-columns: 1fr; }
+}
+
+/* Celular: < 768px */
+@media (max-width: 767px) {
+  .profile-back { display: block; position: fixed; inset: 0; z-index: 34; background: rgba(15, 32, 51, .35); }
+  .profile-menu.popover { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: 100%; max-height: 85vh; border-radius: 16px 16px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .profile-option { min-height: 46px; }
+  .focus-bar { padding: 0 12px; height: 56px; }
+  .focus-bar .logo-name, .focus-bar .demo-badge, .focus-shell .user-meta { display: none; }
+  .focus-shell main { width: calc(100% - 24px); padding-top: 14px; }
+  .focus-exit { padding: 0 12px; }
+  .attendance-bar { flex-direction: column; align-items: stretch; }
+  .attendance-search { width: 100%; min-height: 48px; font-size: 16px; }
+  .attendance-bar .tabs { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .attendance-bar .tabs button { min-height: 48px; }
+  .page:has(.attendance-bar) .page-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .page:has(.attendance-bar) .page-actions { display: flex; flex-direction: column-reverse; gap: 8px; }
+  .page:has(.attendance-bar) .page-actions .btn { width: 100%; min-height: 52px; font-size: 16px; }
+  .judge-card { grid-template-columns: 1fr auto; }
+  .judge-card .btn { grid-column: 1 / -1; width: 100%; }
+  .editor-grid { grid-template-columns: 1fr; }
+  .eval-actions { flex-direction: column-reverse; }
+  .eval-actions .btn { width: 100%; }
+}

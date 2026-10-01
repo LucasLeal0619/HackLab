@@ -1,11 +1,12 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { navFor, navState } from '../model'
+import { navFor, navState } from '../access'
 import { go, useHack } from '../store'
 import Field from './Field.vue'
 import Icon from './Icon.vue'
 import Logo from './Logo.vue'
 import Modal from './Modal.vue'
+import ProfileMenu from './ProfileMenu.vue'
 
 const props = defineProps({
   path: { type: String, default: '' },
@@ -24,7 +25,7 @@ function toggleGroup(id) {
   expanded.value = isOpen(id) ? expanded.value.filter((item) => item !== id) : [...expanded.value, id]
 }
 
-const current = computed(() => navState(props.path))
+const current = computed(() => navState(props.path, hack.state.session?.profile))
 const session = computed(() => hack.state.session)
 const alertCount = computed(() => (
   hack.state.tasks.filter((item) => item.status !== 'Concluído').length
@@ -159,29 +160,7 @@ onUnmounted(() => {
               <button class="btn ghost small" type="button" @click="hack.resetA11y()">Restaurar padrão</button>
             </div>
           </div>
-          <div class="tool">
-            <button class="user-btn" type="button" @click="panel = panel === 'user' ? '' : 'user'">
-              <span class="avatar"><Icon name="users" :size="16" /></span>
-              <span class="user-meta">
-                <b>{{ session?.name || 'Usuário' }}</b>
-                <span><span class="status-dot" /> {{ session?.profile }}</span>
-              </span>
-            </button>
-            <div v-if="panel === 'user'" class="popover" role="menu">
-              <div class="row-between"><h3>Meu perfil</h3><button class="icon-btn" type="button" aria-label="Fechar" title="Fechar" @click="panel = ''"><Icon name="x" :size="16" /></button></div>
-              <p class="stat-hint">{{ session?.email }}<br />{{ session?.sector }} · {{ session?.role }}</p>
-              <p class="stat-hint">Protótipo: clique em um perfil de acesso para ver a regra visual.</p>
-              <div class="chips">
-                <button v-for="profile in ['Administrador', 'Consultor', 'Editor']" :key="profile" type="button" class="chip" :class="{ on: session?.profile === profile }" @click="hack.setProfile(profile)">{{ profile }}</button>
-              </div>
-              <div class="menu-list">
-                <button v-if="session?.profile !== 'Editor'" type="button" @click="panel = ''; go('config')">Configuração do evento</button>
-                <button type="button" @click="hack.loadDemo()">Dados demonstrativos</button>
-                <button type="button" @click="hack.resetAll()">Limpar dados do protótipo</button>
-                <button type="button" @click="hack.logout()"><Icon name="logout" :size="16" /> Sair</button>
-              </div>
-            </div>
-          </div>
+          <ProfileMenu />
         </div>
       </header>
       <main id="conteudo" class="content"><slot /></main>

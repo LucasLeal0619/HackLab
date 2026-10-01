@@ -1,5 +1,6 @@
 import { inject, reactive, ref, toRaw, watch } from 'vue'
-import { ACCOUNTS, KEY, buildDemo, defaultState, normalizeTeams } from './model'
+import { homeFor } from './access'
+import { ACCOUNTS, KEY, SETORES, buildDemo, defaultState, normalizeTeams } from './model'
 
 const STORE = 'hacklab'
 
@@ -122,25 +123,35 @@ export function createHackStore() {
       if (remember) localStorage.setItem('hacklab.remember', normalized)
       else localStorage.removeItem('hacklab.remember')
       store.update((draft) => { draft.session = session })
-      go('dashboard')
+      go(homeFor(session.profile))
       return ''
     },
     logout() {
       store.update((draft) => { draft.session = null })
       go('login')
     },
+    // Simulação do protótipo: troca só a experiência visual, sem tocar nos dados do evento.
     setProfile(profile) {
       store.update((draft) => {
         if (!draft.session) return
         draft.session.profile = profile
         if (profile === 'Editor') {
-          const sectors = draft.session.sectors?.length ? draft.session.sectors : ['Tecnologia']
-          draft.session.sectors = sectors
-          if (!sectors.includes(draft.session.sector)) draft.session.sector = sectors[0]
+          const sectors = (draft.session.sectors || []).filter((name) => SETORES.includes(name))
+          draft.session.sectors = sectors.length ? sectors : ['Tecnologia']
+          if (!draft.session.sectors.includes(draft.session.sector)) draft.session.sector = draft.session.sectors[0]
         }
       })
       store.flash(`Perfil de acesso alterado para ${profile}.`)
-      if (profile === 'Editor') go('dashboard')
+      go(homeFor(profile))
+    },
+    setDemoSector(sector) {
+      if (!SETORES.includes(sector)) return
+      store.update((draft) => {
+        if (!draft.session) return
+        draft.session.sectors = [sector]
+        draft.session.sector = sector
+      })
+      store.flash(`Setor demonstrativo: ${sector}.`)
     },
     setA11y(partial) {
       store.update((draft) => { draft.a11y = { ...draft.a11y, ...partial } })

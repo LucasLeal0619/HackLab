@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { canAccess, inScope, sectorScope } from '../access'
 import { currentEventDay, isAvailable, journeySteps, occurrenceSector, occurrenceStatus, plural, presenceOf } from '../model'
+import { sectorFacts } from '../reports/shared'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import DashboardDomain from '../components/DashboardDomain.vue'
@@ -33,7 +35,7 @@ const eventMeta = computed(() => [
   `${state.event.start || '08:00'}–${state.event.end || '12:00'}`,
   state.event.location || 'Local a cadastrar',
 ])
-const domains = computed(() => [
+const adminDomains = computed(() => [
   {
     title: 'Preparação',
     to: 'config',
@@ -77,6 +79,42 @@ const domains = computed(() => [
     ],
   },
 ])
+const consultantDomains = computed(() => [
+  {
+    title: 'Preparação',
+    to: 'participantes',
+    action: 'Ver participantes',
+    items: [
+      { label: 'Participantes', value: state.students.length, to: 'participantes' },
+      { label: 'Disponíveis', value: available.value, to: 'participantes' },
+      { label: 'Equipes', value: state.teams.length, to: 'equipes' },
+      { label: 'Sem equipe', value: withoutTeam.value, to: 'equipes' },
+    ],
+  },
+  {
+    title: 'Gestão',
+    to: 'pendencias',
+    action: 'Ver pendências',
+    items: [
+      { label: 'Pendências', value: openTasks.value, to: 'pendencias' },
+      { label: 'Ocorrências abertas', value: openOcc.value, to: 'ocorrencias' },
+      { label: 'Reuniões', value: state.meetings.length, to: 'reunioes' },
+    ],
+  },
+  adminDomains.value[2],
+  {
+    title: 'Encerramento',
+    to: 'avaliacoes',
+    action: 'Ver avaliações',
+    items: [
+      { label: 'Avaliações concluídas', value: finishedEvals.value, to: 'avaliacoes' },
+      { label: 'Resultados divulgados', value: state.resultsReleased ? 'Sim' : 'Não', to: 'resultados' },
+    ],
+  },
+])
+const allowed = (to) => canAccess(profile.value, to)
+const domains = computed(() => (profile.value === 'Consultor' ? consultantDomains.value : adminDomains.value)
+  .map((item) => ({ ...item, items: item.items.filter((entry) => allowed(entry.to)) })))
 // Atenção: problema/urgente primeiro, depois pendências, depois informação.
 const RANK = { bad: 0, warn: 1, info: 2 }
 const showAllAttention = ref(false)
@@ -93,11 +131,22 @@ const attention = computed(() => {
   if (dayStarted.value && missing) items.push({ tone: 'warn', text: `${plural(missing, 'participante', 'participantes')} sem presença no Dia ${eventDay.value}`, to: `presenca?dia=${eventDay.value}` })
   if (withoutTeam.value) items.push({ tone: 'warn', text: `${plural(withoutTeam.value, 'participante', 'participantes')} sem equipe`, to: 'equipes' })
   if (state.teams.length && state.evaluations.length === 0) items.push({ tone: 'info', text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
-  return items.sort((x, y) => RANK[x.tone] - RANK[y.tone])
+  return items.filter((item) => allowed(item.to)).sort((x, y) => RANK[x.tone] - RANK[y.tone])
 })
-const sectors = computed(() => (state.session?.sectors?.length ? state.session.sectors : [state.session?.sector || 'Tecnologia']))
-const editorTasks = computed(() => state.tasks.filter((task) => sectors.value.includes(task.sector) && task.status !== 'Concluído'))
-const calls = computed(() => openOccList.value.filter((item) => sectors.value.includes(occurrenceSector(item))))
+const sectors = computed(() => sectorScope(state.session) || [])
+const sectorLink = (name) => `setores?setor=${encodeURIComponent(name)}`
+const mySectors = computed(() => sectors.value.map((name) => ({
+  title: name,
+  to: sectorLink(name),
+  action: 'Abrir setor',
+  items: sectorFacts(state, name).map(([label, value]) => ({ label, value, to: sectorLink(name) })),
+})))
+const editorTasks = computed(() => state.tasks.filter((task) => inScope(state.session, task.sector) && task.status !== 'Concluído'))
+const calls = computed(() => openOccList.value.filter((item) => inScope(state.session, occurrenceSector(item))))
+const recent = computed(() => [
+  ...state.documents.filter((item) => inScope(state.session, item.sector)).slice(0, 3).map((item) => ({ id: item.id, kind: 'Documento', title: item.name, when: item.date, to: 'documentos' })),
+  ...state.occurrences.filter((item) => inScope(state.session, occurrenceSector(item))).slice(0, 3).map((item) => ({ id: item.id, kind: 'Ocorrência', title: item.title, when: item.at || (item.day ? `Dia ${item.day}` : ''), to: 'ocorrencias' })),
+].slice(0, 5))
 
 const STEP_LABELS = ['Configurar evento', 'Participantes', 'Equipes', 'Empresas e desafios', 'Preparação operacional', 'Realizar evento', 'Encerramento']
 
@@ -112,37 +161,46 @@ function statusLabel(status) {
   <Page
     v-if="profile === 'Editor'"
     title="Dashboard"
-    subtitle="Suas pendências, seu setor e o que acontece no evento."
+    :subtitle="`Seu trabalho em ${sectors.join(' e ')}.`"
   >
-    <template #actions>
-      <button class="btn" type="button" @click="go(`setores?setor=${encodeURIComponent(sectors[0])}`)">Abrir meu setor</button>
-      <button class="btn ghost" type="button" @click="go('presenca')">Ingressos e Presença</button>
-    </template>
-    <div class="grid cols-2 mt">
-      <article class="card">
-        <h3>Minhas pendências</h3>
-        <p v-if="editorTasks.length === 0">Nenhuma pendência encontrada.</p>
-        <p v-for="task in editorTasks.slice(0, 3)" :key="task.id">{{ task.title }} · <Badge :tone="toneFor(task.status)">{{ task.status }}</Badge></p>
-        <button class="btn ghost small" type="button" @click="go('pendencias')">Ver pendências</button>
-      </article>
-      <article class="card">
-        <h3>Meu setor</h3>
-        <p v-for="name in sectors" :key="name">{{ name }}</p>
-        <button class="btn small" type="button" @click="go(`setores?setor=${encodeURIComponent(sectors[0])}`)">Abrir setor</button>
-      </article>
-      <article class="card">
-        <h3>Ingressos e presença</h3>
-        <p>Check-in dos participantes e presença em cada dia do Hackathon.</p>
-        <button class="btn ghost small" type="button" @click="go('presenca')">Abrir Ingressos e Presença</button>
-      </article>
-      <article class="card">
-        <h3>Ocorrências relacionadas</h3>
-        <p v-if="calls.length === 0">Nenhuma ocorrência aberta. Tudo certo por aqui.</p>
-        <p v-for="item in calls.slice(0, 3)" :key="item.id">{{ item.title }}</p>
-        <button class="btn ghost small" type="button" @click="go(`ocorrencias?setor=${encodeURIComponent(sectors[0])}`)">Ver ocorrências</button>
-      </article>
+    <div class="dashboard-cockpit editor-cockpit">
+      <div class="editor-grid">
+        <DashboardDomain v-for="item in mySectors" :key="item.title" v-bind="item" />
+        <section class="card dash-block" aria-labelledby="dash-my-tasks">
+          <div class="dash-block-head">
+            <h2 id="dash-my-tasks" class="dash-block-title">Minhas pendências</h2>
+            <a class="dash-more" href="#/pendencias" @click.prevent="go('pendencias')">Ver pendências →</a>
+          </div>
+          <p v-if="editorTasks.length === 0" class="dash-empty"><span class="dash-signal ok">Em dia</span> Nenhuma pendência aberta.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="task in editorTasks.slice(0, 4)" :key="task.id">
+              <a href="#/pendencias" @click.prevent="go('pendencias')"><span>{{ task.title }}</span><Badge :tone="toneFor(task.status)">{{ task.status }}</Badge></a>
+            </li>
+          </ul>
+        </section>
+        <section class="card dash-block" aria-labelledby="dash-my-occ">
+          <div class="dash-block-head">
+            <h2 id="dash-my-occ" class="dash-block-title">Ocorrências do setor</h2>
+            <a class="dash-more" href="#/ocorrencias" @click.prevent="go('ocorrencias')">Ver ocorrências →</a>
+          </div>
+          <p v-if="calls.length === 0" class="dash-empty"><span class="dash-signal ok">Tudo em ordem</span> Nenhuma ocorrência aberta.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="item in calls.slice(0, 4)" :key="item.id">
+              <a href="#/ocorrencias" @click.prevent="go('ocorrencias')"><i class="dash-dot" :class="item.priority === 'Urgente' || item.priority === 'Alta' ? 'bad' : 'warn'" aria-hidden="true" /><span>{{ item.title }}</span><Badge :tone="toneFor(item.priority)">{{ item.priority }}</Badge></a>
+            </li>
+          </ul>
+        </section>
+        <section class="card dash-block" aria-labelledby="dash-recent">
+          <h2 id="dash-recent" class="dash-block-title">Atividades recentes</h2>
+          <p v-if="recent.length === 0" class="dash-empty">Nenhuma atividade registrada no setor.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="item in recent" :key="item.id">
+              <a :href="`#/${item.to}`" @click.prevent="go(item.to)"><span><small class="stat-hint">{{ item.kind }}</small> {{ item.title }}</span><small class="stat-hint">{{ item.when }}</small></a>
+            </li>
+          </ul>
+        </section>
+      </div>
     </div>
-    <SectorSummary class="mt" />
   </Page>
 
   <Page
@@ -160,7 +218,7 @@ function statusLabel(status) {
             </p>
             <h2 id="dash-progress" class="dash-progress-count"><strong>{{ done }}/{{ steps.length }}</strong> etapas concluídas</h2>
           </div>
-          <button class="btn" type="button" @click="go(current.to)">Continuar organização</button>
+          <button v-if="allowed(current.to)" class="btn" type="button" @click="go(current.to)">Continuar organização</button>
         </div>
         <ol class="dash-steps">
           <li v-for="(step, index) in steps" :key="step.label" :class="step.status" :title="`${step.label} · ${statusLabel(step.status)}`">

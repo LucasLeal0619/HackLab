@@ -140,101 +140,24 @@ export const ACCOUNTS = {
     role: 'Apoio',
     sectors: ['Tecnologia'],
   },
-}
-
-const PREP_CHILDREN = [
-  { id: 'config', label: 'Evento' },
-  { id: 'participantes', label: 'Participantes' },
-  { id: 'equipes', label: 'Equipes' },
-  { id: 'empresas', label: 'Empresas' },
-  { id: 'desafios', label: 'Desafios' },
-]
-
-const GESTAO_CHILDREN = [
-  { id: 'setores', label: 'Setores' },
-  { id: 'reunioes', label: 'Reuniões' },
-  { id: 'pendencias', label: 'Pendências' },
-  { id: 'ocorrencias', label: 'Ocorrências' },
-  { id: 'documentos', label: 'Documentos' },
-]
-
-const CLOSE_CHILDREN = [
-  { id: 'jurados', label: 'Jurados' },
-  { id: 'avaliacoes', label: 'Avaliações' },
-  { id: 'votacao-gestao', label: 'Votação' },
-  { id: 'resultados', label: 'Resultados' },
-]
-
-const FULL_NAV = [
-  { group: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', icon: 'home' }] },
-  {
-    group: 'Organização',
-    items: [
-      { id: 'preparacao', label: 'Preparação', icon: 'sliders', children: PREP_CHILDREN },
-      { id: 'gestao', label: 'Gestão', icon: 'grid', children: GESTAO_CHILDREN },
-    ],
+  'validador@senac.br': {
+    name: 'Usuário Validador',
+    profile: 'Validador',
+    sector: '',
+    role: 'Check-in',
   },
-  {
-    group: 'Evento',
-    items: [
-      { id: 'presenca', label: 'Ingressos e Presença', icon: 'ticket' },
-      { id: 'encerramento', label: 'Encerramento', icon: 'star', children: CLOSE_CHILDREN },
-    ],
+  'jurado@senac.br': {
+    name: 'Usuário Jurado',
+    profile: 'Jurado',
+    sector: '',
+    role: 'Jurado',
   },
-  { group: 'Análise', items: [{ id: 'relatorios', label: 'Relatórios', icon: 'chart' }] },
-  { group: 'Administração', items: [{ id: 'usuarios', label: 'Usuários e Permissões', icon: 'users' }] },
-]
-
-const EDITOR_NAV = [
-  { group: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', icon: 'home' }] },
-  { group: 'Organização', items: [{ id: 'gestao', label: 'Gestão', icon: 'grid', children: GESTAO_CHILDREN }] },
-  { group: 'Evento', items: [{ id: 'presenca', label: 'Ingressos e Presença', icon: 'ticket' }] },
-]
-
-export function navFor(profile) {
-  if (profile === 'Editor') return EDITOR_NAV
-  if (profile === 'Administrador') return FULL_NAV
-  return FULL_NAV.filter((group) => group.group !== 'Administração')
-}
-
-export const NAV = FULL_NAV
-
-const LEAF = {
-  dashboard: ['inicio', 'dashboard'],
-  config: ['config'],
-  participantes: ['participantes'],
-  equipes: ['equipes', 'montar', 'roletas'],
-  empresas: ['empresas', 'empresa'],
-  desafios: ['desafios', 'desafio', 'distribuicao'],
-  setores: ['setores'],
-  reunioes: ['reunioes', 'reuniao', 'manifestacao'],
-  pendencias: ['pendencias'],
-  documentos: ['documentos'],
-  ocorrencias: ['ocorrencias'],
-  presenca: ['presenca'],
-  jurados: ['jurados', 'criterios'],
-  avaliacoes: ['avaliacoes'],
-  'votacao-gestao': ['votacao-gestao'],
-  resultados: ['resultados', 'premiacao', 'painel'],
-  usuarios: ['usuarios'],
-  relatorios: ['relatorios', 'relatorio'],
-}
-
-export function navActive(id, path) {
-  if (path === id) return true
-  return (LEAF[id] || []).includes(path)
-}
-
-// Único ponto que traduz a rota atual em destino ativo da Sidebar.
-export function navState(path) {
-  for (const group of FULL_NAV) {
-    for (const item of group.items) {
-      const child = item.children?.find((entry) => navActive(entry.id, path))
-      if (child) return { item: child.id, group: item.id }
-      if (!item.children && navActive(item.id, path)) return { item: item.id, group: '' }
-    }
-  }
-  return { item: '', group: '' }
+  'votante@senac.br': {
+    name: 'Usuário Votante',
+    profile: 'Votante',
+    sector: '',
+    role: 'Público',
+  },
 }
 
 export function teamName(id) {

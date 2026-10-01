@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { sectorScope } from '../access'
 import { EXPENSE_CATEGORIES, occurrenceSector, occurrenceStatus, SETORES, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
@@ -116,7 +117,13 @@ function leadOf(name) {
   return state.orgMembers.find((item) => item.sector === name)?.name || '—'
 }
 
-const opened = computed(() => (SETORES.includes(props.params.setor) ? props.params.setor : ''))
+const scope = computed(() => sectorScope(state.session))
+const opened = computed(() => {
+  const wanted = SETORES.includes(props.params.setor) ? props.params.setor : ''
+  if (!scope.value) return wanted
+  if (wanted && scope.value.includes(wanted)) return wanted
+  return scope.value.length === 1 ? scope.value[0] : ''
+})
 const sector = computed(() => opened.value || 'Recursos Humanos')
 const view = ref(SUB[sector.value][0].id)
 const modal = ref(null)
@@ -166,8 +173,8 @@ const mine = computed(() => {
   return []
 })
 const mineSet = computed(() => new Set(mine.value.filter((name) => SETORES.includes(name))))
-const primarySectors = computed(() => (mineSet.value.size ? SETORES.filter((name) => mineSet.value.has(name)) : SETORES))
-const otherSectors = computed(() => (mineSet.value.size ? SETORES.filter((name) => !mineSet.value.has(name)) : []))
+const primarySectors = computed(() => scope.value || (mineSet.value.size ? SETORES.filter((name) => mineSet.value.has(name)) : SETORES))
+const otherSectors = computed(() => (scope.value ? [] : mineSet.value.size ? SETORES.filter((name) => !mineSet.value.has(name)) : []))
 const modalTitle = computed(() => (form.value.id ? EDIT_TITLES : NEW_TITLES)[modal.value])
 
 function reportOccurrence(extra = {}) {
@@ -312,7 +319,7 @@ function editSchedule(item) {
         <button class="btn small" type="button" @click="selectSector(name)">Abrir setor</button>
       </article>
     </div>
-    <template v-if="mineSet.size">
+    <template v-if="otherSectors.length">
       <h3 class="ops-title">Demais setores</h3>
       <div class="grid cols-3">
         <article v-for="name in otherSectors" :key="name" class="card">
@@ -326,9 +333,9 @@ function editSchedule(item) {
     </template>
   </Page>
 
-  <Page v-else :crumbs="`Setores / ${sector}`" :title="sector" :subtitle="COPY[sector]">
+  <Page v-else :crumbs="`${scope ? 'Meu Setor' : 'Setores'} / ${sector}`" :title="sector" :subtitle="COPY[sector]">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('setores')">Voltar</button>
+      <button v-if="!scope || scope.length > 1" class="btn ghost" type="button" @click="go('setores')">Voltar</button>
       <button v-if="view === 'integrantes'" class="btn" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Novo integrante</button>
       <button v-else-if="view === 'mov'" class="btn" @click="open('mov', { kind: 'Receita', description: '', category: 'Outros', value: '', date: '', status: 'Pendente', supplier: '', origin: '', responsible: '', notes: '' })">+ Nova movimentação</button>
       <button v-else-if="view === 'fornecedores'" class="btn" @click="open('fornecedor', { name: '', category: 'Outros', contact: '', status: 'Ativo' })">+ Novo fornecedor</button>

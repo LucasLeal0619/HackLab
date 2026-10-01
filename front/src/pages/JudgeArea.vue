@@ -2,10 +2,9 @@
 import { companyOf, teamChallenge, teamName } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
-import Page from '../components/Page.vue'
-import { toneFor } from '../components/tone.js'
+import Empty from '../components/Empty.vue'
 
-const { state, update, flash } = useHack()
+const { state } = useHack()
 
 function teamLabel(team) {
   const challenge = teamChallenge(state, team.id)
@@ -13,28 +12,33 @@ function teamLabel(team) {
   return { challenge, company }
 }
 
-function teamStatus(teamId) {
-  const items = state.evaluations.filter((item) => item.teamId === teamId)
-  if (items.some((item) => item.status === 'revisao')) return 'Em revisão'
-  const activeJudges = state.judges.filter((item) => item.status !== 'Inativo')
-  const done = items.filter((item) => item.status === 'concluida')
-  if (!items.length) return 'Não iniciada'
-  if (activeJudges.length && done.length >= activeJudges.length) return 'Concluída'
-  if (!activeJudges.length && done.length) return 'Concluída'
-  return 'Em andamento'
+// Só a avaliação do próprio jurado: notas e andamento dos demais não aparecem aqui.
+function myStatus(teamId) {
+  const mine = state.evaluations.find((item) => item.teamId === teamId && item.judgeName === (state.session?.name || 'Jurado'))
+  if (!mine) return { label: 'Pendente', tone: '', action: 'Avaliar' }
+  if (mine.status === 'concluida') return { label: 'Concluída', tone: 'ok', action: 'Visualizar' }
+  if (mine.status === 'revisao') return { label: 'Em revisão', tone: 'warn', action: 'Revisar' }
+  return { label: 'Rascunho', tone: 'warn', action: 'Continuar' }
 }
-
 </script>
 
 <template>
-  <Page title="Equipes disponíveis" subtitle="Escolha a equipe que você vai avaliar.">
-    <div class="grid cols-2">
-      <article v-for="team in state.teams" :key="team.id" class="card">
-        <h3>{{ teamName(team.id) }}</h3>
-        <p>{{ teamLabel(team).company?.name || '—' }} · {{ teamLabel(team).challenge?.title || '—' }}</p>
-        <Badge :tone="toneFor(teamStatus(team.id))">{{ teamStatus(team.id) }}</Badge>
-        <div><button class="btn small" type="button" @click="go(`avaliar?id=${team.id}`)">Avaliar equipe</button></div>
-      </article>
-    </div>
-  </Page>
+  <section class="judge-home">
+    <header class="judge-head">
+      <h1>Minhas avaliações</h1>
+      <p>Escolha a equipe para avaliar. Suas notas ficam visíveis apenas para a organização.</p>
+    </header>
+    <Empty v-if="state.teams.length === 0" title="Nenhuma equipe para avaliar." text="As equipes aparecerão aqui quando forem formadas pela organização." />
+    <ul v-else class="judge-list">
+      <li v-for="team in state.teams" :key="team.id" class="card judge-card">
+        <div class="judge-card-main">
+          <h2>{{ teamName(team.id) }}</h2>
+          <p>{{ teamLabel(team).challenge?.title || 'Desafio a definir' }}</p>
+          <p class="stat-hint">{{ teamLabel(team).company?.name || 'Empresa a definir' }}</p>
+        </div>
+        <Badge :tone="myStatus(team.id).tone">{{ myStatus(team.id).label }}</Badge>
+        <button class="btn" :class="{ ghost: myStatus(team.id).action === 'Visualizar' }" type="button" @click="go(`avaliar?id=${team.id}`)">{{ myStatus(team.id).action }}</button>
+      </li>
+    </ul>
+  </section>
 </template>

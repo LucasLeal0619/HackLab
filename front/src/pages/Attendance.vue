@@ -182,7 +182,7 @@ function setTicketStatus(value) {
       <span>Registros manuais <b>{{ summary.manual }}</b></span>
     </p>
 
-    <div class="table-wrap">
+    <div class="table-wrap attendance-table-wrap">
       <table class="attendance-table">
         <thead><tr><th>Participante</th><th>Turma</th><th>Equipe</th><th>Ingresso</th><th>Presença</th><th>Método</th><th>Ações</th></tr></thead>
         <tbody>
@@ -206,6 +206,23 @@ function setTicketStatus(value) {
         </tbody>
       </table>
     </div>
+
+    <!-- Celular: registros em cards, sem tabela espremida. -->
+    <ul class="attendance-cards">
+      <li v-if="rows.length === 0" class="card">{{ state.students.length ? 'Nenhum participante encontrado.' : 'Nenhum participante cadastrado.' }}</li>
+      <li v-for="row in rows" :key="row.student.id" class="card attendance-card">
+        <div class="attendance-card-head">
+          <b>{{ row.student.name }}</b>
+          <Badge :tone="row.record ? 'ok' : ''">{{ row.record ? 'Presente' : 'Não registrado' }}</Badge>
+        </div>
+        <p>{{ teamLabel(row.student.id) }} · Turma {{ row.student.turma || '—' }}</p>
+        <p><span class="ticket-code">{{ row.code }}</span> · Ingresso {{ row.ticket.toLowerCase() }}<template v-if="row.record"> · {{ row.record.method }} {{ row.record.time }}</template></p>
+        <div class="attendance-card-actions">
+          <button class="btn ghost" type="button" @click="ticketId = row.student.id">Ver ingresso</button>
+          <button v-if="!row.record && row.ticket === 'Ativo'" class="btn ghost" type="button" @click="openManual(row.student)">Registrar</button>
+        </div>
+      </li>
+    </ul>
 
     <Modal v-if="scan" title="Validar ingresso" :subtitle="`Registro de presença do Dia ${day}. Leitura demonstrativa, sem câmera real.`" @close="scan = null">
       <div class="scan-area">

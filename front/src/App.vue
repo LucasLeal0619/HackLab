@@ -1,7 +1,9 @@
 <script setup>
 import { computed, watch } from 'vue'
+import { canAccess, homeFor, profileConfig } from './access'
 import { go, useHack, useRoute } from './store'
 import FocusFrame from './components/FocusFrame.vue'
+import FocusShell from './components/FocusShell.vue'
 import Icon from './components/Icon.vue'
 import Shell from './components/Shell.vue'
 import Companies from './pages/Companies.vue'
@@ -32,7 +34,6 @@ import Reports from './pages/Reports.vue'
 
 const OPEN = new Set(['login', 'votacao', 'apresentacao'])
 const BARE = new Set(['login', 'votacao', 'apresentacao', 'area-jurado', 'avaliar'])
-const EDITOR_BLOCK = new Set(['config', 'participantes', 'equipes', 'montar', 'roletas', 'empresas', 'empresa', 'desafios', 'desafio', 'distribuicao', 'jurados', 'avaliacoes', 'votacao-gestao', 'resultados', 'painel', 'premiacao', 'relatorios', 'relatorio', 'usuarios'])
 
 function legacyTarget(current, currentParams) {
   if (current === 'inicio') return 'dashboard'
@@ -71,24 +72,35 @@ const route = useRoute()
 const hack = useHack()
 const path = computed(() => route.value.path)
 const params = computed(() => route.value.params)
-const editor = computed(() => hack.state.session?.profile === 'Editor')
+const profile = computed(() => hack.state.session?.profile)
+const experience = computed(() => profileConfig(profile.value))
+// Validador, Jurado e Votante usam uma experiência focada, sem a Sidebar administrativa.
+const focused = computed(() => Boolean(hack.state.session) && experience.value.layout === 'focus' && path.value !== 'login')
 const bare = computed(() => BARE.has(path.value) || !hack.state.session)
 
 const page = computed(() => path.value)
-const admin = computed(() => hack.state.session?.profile === 'Administrador')
 
-watch([path, params, () => hack.state.session, editor], () => {
-  if (!hack.state.session && !OPEN.has(path.value)) go('login')
-  const legacy = hack.state.session ? legacyTarget(path.value, params.value) : ''
+watch([path, params, () => hack.state.session, profile], () => {
+  const session = hack.state.session
+  if (!session) {
+    if (!OPEN.has(path.value)) go('login')
+    return
+  }
+  const legacy = legacyTarget(path.value, params.value)
   if (legacy) { go(legacy); return }
-  if (hack.state.session && path.value === 'login') go('dashboard')
-  if (hack.state.session && path.value === 'usuarios' && !admin.value) go('dashboard')
-  if (editor.value && EDITOR_BLOCK.has(path.value)) go('dashboard')
+  // Página fora da experiência do perfil atual: volta para a página inicial dele.
+  if (path.value === 'login' || !canAccess(profile.value, path.value)) go(homeFor(profile.value))
 }, { immediate: true })
 </script>
 
 <template>
-  <Shell v-if="!bare" :path="path">
+  <FocusShell v-if="focused" :title="experience.title">
+    <Attendance v-if="page === 'presenca'" :params="params" />
+    <JudgeArea v-else-if="page === 'area-jurado'" />
+    <Evaluate v-else-if="page === 'avaliar'" :key="params.id || '1'" :params="params" />
+    <PublicVote v-else-if="page === 'votacao'" />
+  </FocusShell>
+  <Shell v-else-if="!bare" :path="path">
     <Dashboard v-if="page === 'dashboard'" />
     <Config v-else-if="page === 'config'" section="evento" />
     <People v-else-if="page === 'participantes'" :params="params" />

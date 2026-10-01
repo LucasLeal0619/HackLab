@@ -6,6 +6,8 @@ const PATHS = {
   team: 'M8 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6M16 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6M4 19c.5-2 2.2-3 4-3s3.5 1 4 3M12 19c.5-2 2.2-3 4-3s3.5 1 4 3',
   building: 'M4 20V6l8-3 8 3v14M9 20v-5h6v5M9 9h.01M12 9h.01M15 9h.01M9 12h.01M12 12h.01M15 12h.01',
   grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  alert: 'M12 4 3 20h18zM12 10v4M12 17h.01',
+  file: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
   ticket: 'M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4zM14 7v10',
   calendar: 'M5 6h14v14H5zM8 4v4M16 4v4M5 10h14',
   chart: 'M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-6',
