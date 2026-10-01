@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { navActive, navFor } from '../model'
+import { navActive, navFor, navParent } from '../model'
 import { go, useHack } from '../store'
 import Field from './Field.vue'
 import Icon from './Icon.vue'
@@ -14,6 +14,15 @@ const props = defineProps({
 const hack = useHack()
 const open = ref(false)
 const panel = ref('')
+const expanded = ref([])
+
+function isOpen(id) {
+  return expanded.value.includes(id)
+}
+
+function toggleGroup(id) {
+  expanded.value = isOpen(id) ? expanded.value.filter((item) => item !== id) : [...expanded.value, id]
+}
 
 const session = computed(() => hack.state.session)
 const alertCount = computed(() => (
@@ -33,10 +42,12 @@ const alertItems = computed(() => [
 
 const spacingOptions = [['padrao', 'Padrão'], ['confortavel', 'Confortável'], ['amplo', 'Amplo']]
 
-watch(() => props.path, () => {
+watch(() => props.path, (path) => {
   panel.value = ''
   open.value = false
-})
+  const parent = navParent(path)
+  if (parent && !expanded.value.includes(parent)) expanded.value = [...expanded.value, parent]
+}, { immediate: true })
 
 function onPointer(event) {
   if (!panel.value) return
@@ -65,17 +76,44 @@ onUnmounted(() => {
       <div class="side-brand"><Logo /></div>
       <div v-for="group in navFor(session?.profile)" :key="group.group" class="nav-group">
         <p class="nav-label">{{ group.group }}</p>
-        <button
-          v-for="item in group.items"
-          :key="item.id"
-          type="button"
-          class="nav-item"
-          :class="{ active: navActive(item.id, path) }"
-          :aria-current="navActive(item.id, path) ? 'page' : undefined"
-          @click="go(item.id); open = false; panel = ''"
-        >
-          <Icon :name="item.icon" /> {{ item.label }}
-        </button>
+        <template v-for="item in group.items" :key="item.id">
+          <button
+            v-if="item.children"
+            type="button"
+            class="nav-item"
+            :class="{ open: isOpen(item.id), 'group-on': navParent(path) === item.id }"
+            :aria-expanded="isOpen(item.id)"
+            @click="toggleGroup(item.id)"
+          >
+            <Icon :name="item.icon" />
+            <span>{{ item.label }}</span>
+            <Icon class="nav-caret" name="chevron" :size="16" />
+          </button>
+          <div v-if="item.children" class="nav-sub" :class="{ open: isOpen(item.id) }" :aria-hidden="isOpen(item.id) ? undefined : 'true'">
+            <button
+              v-for="child in item.children"
+              :key="child.id"
+              type="button"
+              class="nav-item nav-child"
+              :class="{ active: navActive(child.id, path) }"
+              :tabindex="isOpen(item.id) ? 0 : -1"
+              :aria-current="navActive(child.id, path) ? 'page' : undefined"
+              @click="go(child.id); open = false; panel = ''"
+            >
+              {{ child.label }}
+            </button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="nav-item"
+            :class="{ active: navActive(item.id, path) }"
+            :aria-current="navActive(item.id, path) ? 'page' : undefined"
+            @click="go(item.id); open = false; panel = ''"
+          >
+            <Icon :name="item.icon" /> {{ item.label }}
+          </button>
+        </template>
       </div>
       <div class="side-foot">Protótipo local · dados neste navegador</div>
     </aside>
@@ -95,7 +133,7 @@ onUnmounted(() => {
               <div v-else class="menu-list">
                 <p v-for="item in alertItems" :key="item">{{ item }}</p>
               </div>
-              <button class="btn ghost small" type="button" @click="panel = ''; go('gestao?aba=pendencias')">Ver pendências</button>
+              <button class="btn ghost small" type="button" @click="panel = ''; go('pendencias')">Ver pendências</button>
             </div>
           </div>
           <div class="tool">
@@ -136,7 +174,7 @@ onUnmounted(() => {
                 <button v-for="profile in ['Administrador', 'Consultor', 'Editor']" :key="profile" type="button" class="chip" :class="{ on: session?.profile === profile }" @click="hack.setProfile(profile)">{{ profile }}</button>
               </div>
               <div class="menu-list">
-                <button v-if="session?.profile !== 'Editor'" type="button" @click="panel = ''; go('preparacao?aba=evento')">Configuração do evento</button>
+                <button v-if="session?.profile !== 'Editor'" type="button" @click="panel = ''; go('config')">Configuração do evento</button>
                 <button type="button" @click="hack.loadDemo()">Dados demonstrativos</button>
                 <button type="button" @click="hack.resetAll()">Limpar dados do protótipo</button>
                 <button type="button" @click="hack.logout()"><Icon name="logout" :size="16" /> Sair</button>

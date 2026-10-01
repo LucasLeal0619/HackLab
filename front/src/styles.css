@@ -62,6 +62,8 @@ h2 { margin: 0 0 var(--space-2); font-size: var(--text-xl); font-weight: 650; li
 h3 { margin: 0 0 var(--space-1); font-size: var(--text-lg); font-weight: 650; line-height: 1.35; }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
+html.reduce-motion .nav-sub,
+html.reduce-motion .nav-caret,
 html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after {
   animation: none !important;
   transition: none !important;
@@ -326,6 +328,21 @@ textarea.input { min-height: 96px; resize: vertical; }
   color: #fff;
 }
 .nav-item.active svg { opacity: 1; }
+.nav-item.group-on { color: #fff; font-weight: 650; }
+.nav-item .nav-caret { margin-left: auto; opacity: .8; transition: transform var(--ease); }
+.nav-item.open .nav-caret { transform: rotate(90deg); }
+.nav-sub { max-height: 0; overflow: hidden; transition: max-height var(--ease); }
+.nav-sub.open { max-height: 280px; }
+.nav-child {
+  min-height: 34px;
+  padding-left: 42px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,.82);
+}
+.nav-child.active { font-weight: 700; color: #fff; }
+button.dash-link { display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.dash-link:hover { border-color: var(--blue); }
 .sidebar :focus-visible { outline-color: #fff; }
 .side-foot { margin-top: auto; padding: 14px 16px 18px; font-size: 12px; color: rgba(255,255,255,.7); flex: 0 0 auto; }
 

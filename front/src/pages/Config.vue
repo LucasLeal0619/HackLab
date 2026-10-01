@@ -7,11 +7,10 @@ import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
-import Tabs from '../components/Tabs.vue'
 import { toneFor } from '../components/tone'
 
-const props = defineProps({
-  params: { type: Object, default: () => ({}) },
+defineProps({
+  section: { type: String, default: 'evento' },
 })
 
 const MATRIX = [
@@ -35,7 +34,6 @@ const emptyUser = { name: '', email: '', profile: 'Editor', status: 'Ativo', sec
 
 const { state, update, flash } = useHack()
 const admin = computed(() => state.session?.profile === 'Administrador')
-const tab = ref(props.params.aba || 'hackathon')
 const dated = ref(Boolean(state.event.date))
 const form = ref({ ...state.event })
 const modal = ref(null)
@@ -107,9 +105,11 @@ function toggleSector(item) {
 </script>
 
 <template>
-  <Page crumbs="HackLab / Organização / Configuração do Hackathon" title="Configuração do Hackathon" subtitle="Defina as principais informações utilizadas na organização do evento.">
-    <Tabs :tabs="[{ id: 'hackathon', label: 'Hackathon' }, { id: 'usuarios', label: 'Usuários e Permissões' }]" :model-value="tab" @update:model-value="tab = $event" />
-    <form v-if="tab === 'hackathon'" @submit="saveEvent">
+  <Page
+    :title="section === 'usuarios' ? 'Usuários e Permissões' : 'Evento'"
+    :subtitle="section === 'usuarios' ? 'Cadastre usuários e consulte a matriz de acesso demonstrativa.' : 'Configure as informações gerais do Hackathon.'"
+  >
+    <form v-if="section !== 'usuarios'" @submit="saveEvent">
       <section class="card form-section">
         <h3>Informações gerais</h3>
         <div class="form-grid">

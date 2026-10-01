@@ -136,20 +136,13 @@ function noteFor(student) {
 </script>
 
 <template>
-  <Page crumbs="HackLab / Organização / Participantes" title="Participantes" subtitle="Gerencie os participantes do Hackathon.">
+  <Page title="Participantes" subtitle="Gerencie os participantes do Hackathon.">
     <template #actions>
       <button v-if="state.participantsConfirmed" class="btn ghost" type="button" @click="askReopen = true">Reabrir participantes</button>
       <button v-else class="btn ghost" type="button" @click="askConfirm = true">Confirmar participantes</button>
       <button class="btn" type="button" @click="openCreate">+ Cadastrar participante</button>
     </template>
-    <div class="grid cols-4">
-      <article class="card stat"><div class="stat-label">Total cadastrados</div><div class="stat-value">{{ registered }}</div></article>
-      <article v-for="item in TURMAS" :key="item.id" class="card stat">
-        <div class="stat-label">{{ item.id }}</div>
-        <div class="stat-value">{{ state.students.filter((student) => student.turma === item.id).length }}</div>
-      </article>
-    </div>
-    <div class="filters mt">
+    <div class="filters">
       <input v-model="query" class="input" placeholder="Buscar participante" aria-label="Buscar participante" />
       <select v-model="turma" class="input" aria-label="Turma">
         <option value="Todas">Turma</option>
@@ -190,7 +183,7 @@ function noteFor(student) {
                   <button class="btn ghost small" type="button" title="Mais opções" aria-label="Mais opções" @mousedown.stop @click="menu = menu === student.id ? '' : student.id">⋯</button>
                   <div v-if="menu === student.id" class="menu-pop" @mousedown.stop>
                     <button v-if="teamOf(student.id)" type="button" @click="go(`montar?id=${teamOf(student.id).id}`)">Abrir equipe</button>
-                    <button v-else type="button" @click="go('preparacao?aba=equipes')">Ver equipes</button>
+                    <button v-else type="button" @click="go('equipes')">Ver equipes</button>
                     <button v-if="availabilityOf(student) !== 'Disponível'" type="button" @click="setAvailability(student, 'Disponível')">Marcar como disponível</button>
                     <button v-if="availabilityOf(student) !== 'Indisponível'" type="button" @click="setAvailability(student, 'Indisponível')">Marcar como indisponível</button>
                     <button v-if="availabilityOf(student) !== 'Desistente'" type="button" @click="setAvailability(student, 'Desistente')">Marcar como desistente</button>

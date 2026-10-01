@@ -4,7 +4,7 @@ import Logo from './Logo.vue'
 
 defineProps({
   title: { type: String, default: '' },
-  exitTo: { type: String, default: 'inicio' },
+  exitTo: { type: String, default: 'dashboard' },
 })
 </script>
 

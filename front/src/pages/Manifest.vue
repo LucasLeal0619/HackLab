@@ -53,7 +53,7 @@ function confirmManifest() {
 <template>
   <Page v-if="!meeting?.ata" title="Reuniões e Pendências">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('gestao?aba=reunioes')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('reunioes')">Voltar</button>
     </template>
     <Empty title="Nenhuma ata disponível." text="Finalize a ata antes de registrar a manifestação." />
   </Page>
@@ -64,7 +64,7 @@ function confirmManifest() {
     :subtitle="`Manifestação sobre a ata · ${meeting.title}`"
   >
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('gestao?aba=reunioes')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('reunioes')">Voltar</button>
     </template>
     <div class="card">
       <h3>ATA Nº {{ meeting.ata.number }}</h3>

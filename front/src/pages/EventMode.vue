@@ -406,7 +406,7 @@ function teamMeta(team) {
             <div class="stat-value">{{ item.value }}</div>
           </article>
         </div>
-        <div class="page-actions"><button class="btn ghost" type="button" @click="go('preparacao?aba=equipes')">Abrir Equipes</button></div>
+        <div class="page-actions"><button class="btn ghost" type="button" @click="go('equipes')">Abrir Equipes</button></div>
 
         <h3 class="ops-title">Empresas e desafios</h3>
         <div class="table-wrap">
@@ -710,7 +710,7 @@ function teamMeta(team) {
           <h3>Jurados</h3>
           <p>Jurados {{ dash(state.judges.length) }}</p>
           <p>Avaliações pendentes —</p>
-          <button class="btn ghost small" type="button" @click="go('encerramento?aba=jurados')">Abrir jurados</button>
+          <button class="btn ghost small" type="button" @click="go('jurados')">Abrir jurados</button>
         </article>
         <article class="card">
           <h3>Votação do Público</h3>
@@ -720,7 +720,7 @@ function teamMeta(team) {
         <article class="card">
           <h3>Painel de Resultados</h3>
           <p>{{ state.resultsReleased ? 'Resultados liberados' : 'Resultados ainda não liberados' }}</p>
-          <button class="btn ghost small" type="button" @click="go('encerramento?aba=resultados')">Abrir resultados</button>
+          <button class="btn ghost small" type="button" @click="go('resultados')">Abrir resultados</button>
         </article>
         <article class="card">
           <h3>Premiação</h3>
@@ -730,7 +730,7 @@ function teamMeta(team) {
 
       <h3 class="ops-title">Cronograma</h3>
       <ol class="day-flow"><li v-for="item in DAY3_FLOW" :key="item">{{ item }}</li></ol>
-      <NextStep title="Dia 3 em andamento" text="Quando as apresentações avançarem, siga para o encerramento." action="Ir para Encerramento" to="encerramento?aba=jurados" />
+      <NextStep title="Dia 3 em andamento" text="Quando as apresentações avançarem, siga para o encerramento." action="Ir para Encerramento" to="jurados" />
     </template>
   </Page>
 </template>

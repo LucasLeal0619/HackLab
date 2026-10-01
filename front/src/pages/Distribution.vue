@@ -29,7 +29,7 @@ const cards = computed(() => state.teams.map((team) => {
     subtitle="Visão do Dia 1 · relação entre equipes, empresas e desafios. No Dia 1 as soluções ainda não são exibidas."
   >
     <template #actions>
-      <button class="btn ghost" @click="go('empresas?aba=desafios')">Voltar</button>
+      <button class="btn ghost" @click="go('desafios')">Voltar</button>
     </template>
     <div class="grid cols-2">
       <article v-for="card in cards" :key="card.id" class="card">

@@ -66,7 +66,7 @@ function markPresence(userId, option) {
   </Page>
   <Page v-else :crumbs="`Reuniões / ${meeting.title}`" :title="meeting.title" :subtitle="meeting.type">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('gestao?aba=reunioes')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('reunioes')">Voltar</button>
     </template>
     <p><Badge :tone="toneFor(meeting.status)">{{ meeting.status }}</Badge> · {{ meeting.date || 'Data a definir' }} · {{ meeting.place }}</p>
     <section class="card">
@@ -101,7 +101,7 @@ function markPresence(userId, option) {
     <section class="card">
       <h3>Documentos</h3>
       <p class="stat-hint">Os documentos do Hackathon ficam na central de documentos. Aqui aparecem só os ligados a esta reunião.</p>
-      <button class="btn ghost small" type="button" @click="go('gestao?aba=documentos')">Ver documentos</button>
+      <button class="btn ghost small" type="button" @click="go('documentos')">Ver documentos</button>
     </section>
     <Modal v-if="presence" title="Registrar presença" subtitle="Presença manual desta reunião." @close="presence = false">
       <div v-for="user in people" :key="user.id" class="person">

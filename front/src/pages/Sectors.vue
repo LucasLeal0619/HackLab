@@ -223,7 +223,7 @@ const kpis = computed(() => {
 const modalTitle = computed(() => (form.value.id ? EDIT_TITLES : NEW_TITLES)[modal.value])
 
 function selectSector(name) {
-  go(`gestao?aba=setores&setor=${encodeURIComponent(name)}`)
+  go(`setores?setor=${encodeURIComponent(name)}`)
 }
 
 function open(type, seed) {
@@ -353,7 +353,7 @@ function editSchedule(item) {
 </script>
 
 <template>
-  <Page v-if="!opened" title="Setores" subtitle="Escolha um setor para acompanhar o que falta.">
+  <Page v-if="!opened" title="Setores" subtitle="Acompanhe as áreas responsáveis pela organização.">
     <p class="stat-hint">Cada setor mostra o status, o responsável e as pendências. Abra um setor para ver o que precisa ser feito.</p>
     <h3 v-if="mineSet.size" class="ops-title">Meus setores</h3>
     <div class="grid cols-3">
@@ -381,7 +381,7 @@ function editSchedule(item) {
 
   <Page v-else :crumbs="`Setores / ${sector}`" :title="sector" :subtitle="COPY[sector]">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('gestao?aba=setores')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('setores')">Voltar</button>
       <button v-if="view === 'integrantes'" class="btn" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Novo integrante</button>
       <button v-else-if="view === 'mov'" class="btn" @click="open('mov', { kind: 'Receita', description: '', category: 'Outros', value: '', date: '', status: 'Pendente', supplier: '', origin: '', responsible: '', notes: '' })">+ Nova movimentação</button>
       <button v-else-if="view === 'fornecedores'" class="btn" @click="open('fornecedor', { name: '', category: 'Outros', contact: '', status: 'Ativo' })">+ Novo fornecedor</button>
@@ -787,7 +787,7 @@ function editSchedule(item) {
     <div class="card mt">
       <div class="row-between">
         <h3>Pendências deste setor</h3>
-        <button class="btn ghost small" @click="go('gestao?aba=pendencias')">Ver todas</button>
+        <button class="btn ghost small" @click="go('pendencias')">Ver todas</button>
       </div>
       <p v-if="pendencias.length === 0">Nenhuma pendência registrada para este setor.</p>
       <p v-for="task in pendencias.slice(0, 4)" :key="task.id">{{ task.title }} · <Badge :tone="toneFor(task.status)">{{ task.status }}</Badge></p>

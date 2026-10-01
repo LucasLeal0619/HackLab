@@ -13,9 +13,9 @@ const team = computed(() => state.teams.find((item) => String(item.id) === Strin
 
 <template>
   <Page title="Formação de equipes">
-    <template #actions><button class="btn ghost" type="button" @click="go('preparacao?aba=equipes')">Voltar</button></template>
+    <template #actions><button class="btn ghost" type="button" @click="go('equipes')">Voltar</button></template>
     <Empty title="A formação agora é uma sugestão equilibrada" :text="team ? 'Use Formar equipes para gerar ou ajustar a distribuição. O sorteio por modelo fixo não faz mais parte da formação.' : 'Ainda não há equipes formadas.'">
-      <template #action><button class="btn" type="button" @click="go('preparacao?aba=equipes')">Ir para Equipes</button></template>
+      <template #action><button class="btn" type="button" @click="go('equipes')">Ir para Equipes</button></template>
     </Empty>
   </Page>
 </template>

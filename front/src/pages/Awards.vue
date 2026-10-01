@@ -38,7 +38,7 @@ function removeAward() {
 <template>
   <Page crumbs="HackLab / Evento / Jurados e Votação / Premiação" title="Premiação" subtitle="Os prêmios oficiais ainda não foram definidos.">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('encerramento?aba=resultados')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('resultados')">Voltar</button>
     </template>
     <Empty v-if="state.awards.length === 0" title="Nenhuma premiação configurada." text="A definir." />
     <div v-else class="grid cols-3">

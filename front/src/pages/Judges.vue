@@ -8,13 +8,8 @@ import Empty from '../components/Empty.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
-import Tabs from '../components/Tabs.vue'
 import { toneFor } from '../components/tone.js'
 
-const TABS = [
-  { id: 'avaliacoes', label: 'Jurados e Avaliações' },
-  { id: 'publico', label: 'Votação do Público' },
-]
 const TYPES = ['Nota numérica', 'Escala', 'Conceito']
 
 const props = defineProps({
@@ -75,7 +70,12 @@ const showJudgesBlock = computed(() => !props.part || props.part === 'jurados')
 const showEvalBlock = computed(() => !props.part || props.part === 'avaliacoes')
 const showVote = computed(() => props.part === 'votacao' || (!props.part && tab.value === 'publico'))
 const showResults = computed(() => props.part === 'resultados')
-const crumbs = computed(() => (tab.value === 'publico' ? 'HackLab / Evento / Jurados e Votação / Votação do Público' : 'HackLab / Evento / Jurados e Votação'))
+const heading = computed(() => {
+  if (props.part === 'avaliacoes') return ['Avaliações', 'Acompanhe as avaliações das equipes e dos jurados.']
+  if (props.part === 'votacao') return ['Votação', 'Gerencie a votação do público.']
+  if (props.part === 'resultados') return ['Resultados', 'Visualize, libere e apresente os resultados do Hackathon.']
+  return ['Jurados', 'Gerencie os jurados participantes das avaliações.']
+})
 
 const modal = ref(null)
 const form = ref({})
@@ -92,9 +92,9 @@ const reps = computed(() => company.value?.reps || [])
 const selectedRep = computed(() => reps.value.find((item) => item.id === form.value.repId))
 const totalVotes = computed(() => state.voting.ballots.length)
 
-function choose(id) {
-  showVotes.value = false
-  go(id === 'publico' ? 'encerramento?aba=votacao' : 'encerramento?aba=jurados')
+function releaseResults() {
+  update((draft) => { draft.resultsReleased = true })
+  flash('Resultados liberados para divulgação.')
 }
 
 function saveJudge() {
@@ -199,22 +199,14 @@ function removeRecord() {
 </script>
 
 <template>
-  <Page :crumbs="crumbs" title="Jurados e Votação" subtitle="Acompanhe avaliações dos jurados e a votação do público no encerramento do Hackathon.">
-    <Tabs v-if="!part" :tabs="TABS" :model-value="tab" @update:model-value="choose" />
+  <Page :title="heading[0]" :subtitle="heading[1]">
+    <template #actions>
+      <button v-if="showJudgesBlock && showAdmin" class="btn" type="button" @click="openJudge">+ Adicionar jurado</button>
+      <button v-else-if="showEvalBlock && showAdmin" class="btn" type="button" @click="go('area-jurado')">Abrir Área do Jurado</button>
+    </template>
 
     <template v-if="showAdmin">
       <template v-if="showJudgesBlock">
-        <div class="grid cols-4">
-          <article class="card"><h3>Jurados</h3><div class="stat-value">{{ dash(state.judges.length) }}</div></article>
-          <article class="card"><h3>Equipes</h3><div class="stat-value">{{ state.teams.length || '—' }}</div></article>
-          <article class="card"><h3>Avaliações concluídas</h3><div class="stat-value">{{ dash(finished) }}</div></article>
-          <article class="card"><h3>Pendentes</h3><div class="stat-value">{{ activeJudges.length ? pendingTeams : '—' }}</div></article>
-        </div>
-
-        <div class="row-between mt">
-          <h3 class="ops-title">Jurados</h3>
-          <button class="btn" type="button" @click="openJudge">+ Adicionar jurado</button>
-        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Jurado</th><th>Empresa</th><th>Avaliações</th><th>Status</th><th>Ações</th></tr></thead>
@@ -273,10 +265,6 @@ function removeRecord() {
       </template>
 
       <template v-if="showEvalBlock">
-        <div class="page-actions">
-          <button class="btn" type="button" @click="go('area-jurado')">Abrir Área do Jurado</button>
-        </div>
-        <h3 class="ops-title">Avaliações</h3>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Equipe</th><th>Desafio</th><th>Jurados</th><th>Avaliações</th><th>Status</th><th>Ações</th></tr></thead>
@@ -303,19 +291,10 @@ function removeRecord() {
 
     <section v-if="showVote" class="vote-admin">
       <div class="row-between">
-        <div>
-          <h2 class="ops-title">Votação do Público</h2>
-          <p class="stat-hint">A votação popular é independente do resultado técnico dos jurados. Os dois resultados não são somados.</p>
-        </div>
+        <p class="stat-hint">A votação popular é independente do resultado técnico dos jurados. Os dois resultados não são somados.</p>
         <Badge :tone="toneFor(state.voting.status)">{{ state.voting.status }}</Badge>
       </div>
-      <div class="grid cols-4">
-        <article class="card"><h3>Status</h3><div class="stat-value" :style="{ fontSize: '22px' }">{{ state.voting.status }}</div></article>
-        <article class="card"><h3>Votos registrados</h3><div class="stat-value">{{ dash(totalVotes) }}</div></article>
-        <article class="card"><h3>Equipes</h3><div class="stat-value">{{ state.teams.length || '—' }}</div></article>
-        <article class="card"><h3>Participantes habilitados</h3><div class="stat-value">—</div></article>
-      </div>
-      <div class="page-actions mt">
+      <div class="page-actions">
         <button v-if="state.voting.status === 'Não iniciada'" class="btn" type="button" @click="confirmVote = 'start'">Iniciar votação</button>
         <button v-if="state.voting.status === 'Em andamento'" class="btn" type="button" @click="confirmVote = 'end'">Encerrar votação</button>
         <button v-if="state.voting.status === 'Encerrada'" class="btn" type="button" @click="showVotes = true">Visualizar resultado</button>
@@ -346,9 +325,13 @@ function removeRecord() {
     </section>
 
     <section v-if="showResults" class="card">
-      <h2 class="ops-title">Resultados</h2>
       <p>{{ state.resultsReleased ? 'A divulgação já foi liberada.' : 'Verifique os resultados disponíveis e libere a divulgação quando estiver pronto.' }}</p>
-      <button class="btn" type="button" @click="go('painel')">Abrir Painel de Resultados</button>
+      <div class="page-actions">
+        <button class="btn" type="button" @click="go('painel')">Visualizar resultados</button>
+        <button class="btn ghost" type="button" :disabled="state.resultsReleased" @click="releaseResults">Liberar resultados</button>
+        <button class="btn ghost" type="button" @click="go('painel')">Abrir Painel de Resultados</button>
+        <button class="btn ghost" type="button" @click="go('apresentacao')">Modo Apresentação</button>
+      </div>
     </section>
 
     <Modal v-if="modal === 'juiz'" :title="form.id ? 'Editar jurado' : 'Adicionar jurado'" subtitle="Empresa, representante e, então, a função de jurado. O cadastro do representante não é duplicado." @close="modal = null">

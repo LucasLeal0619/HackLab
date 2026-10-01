@@ -15,9 +15,6 @@ const { state, update, flash } = useHack()
 const open = ref(false)
 const replace = ref(false)
 const available = computed(() => state.students.filter(isAvailable))
-const placed = computed(() => new Set(state.teams.flatMap((team) => activeMembers(team, state.students).map((student) => student.id))))
-const free = computed(() => available.value.filter((student) => !placed.value.has(student.id)).length)
-const allocated = computed(() => available.value.filter((student) => placed.value.has(student.id)).length)
 const changed = computed(() => state.teams.some((team) => pausedMembers(team, state.students).length))
 const size = computed(() => state.teamSize || 6)
 
@@ -55,17 +52,11 @@ function mountManual() {
 </script>
 
 <template>
-  <Page title="Equipes" subtitle="As equipes são sugeridas com base nos participantes disponíveis, buscando uma distribuição equilibrada entre as turmas.">
+  <Page title="Equipes" subtitle="Forme e organize as equipes participantes.">
     <template #actions>
       <button class="btn" type="button" @click="open = true">Formar equipes</button>
     </template>
-    <div class="grid cols-4">
-      <article class="card stat"><div class="stat-label">Disponíveis</div><div class="stat-value">{{ available.length }}</div></article>
-      <article class="card stat"><div class="stat-label">Equipes formadas</div><div class="stat-value">{{ state.teams.length }}</div></article>
-      <article class="card stat"><div class="stat-label">Alocados</div><div class="stat-value">{{ allocated }}</div></article>
-      <article class="card stat"><div class="stat-label">Sem equipe</div><div class="stat-value">{{ free }}</div></article>
-    </div>
-    <p class="stat-hint mt">O HackLab distribui os participantes disponíveis buscando equilibrar o tamanho das equipes e as turmas. A sugestão é um ponto de partida.</p>
+    <p class="stat-hint">O HackLab distribui os participantes disponíveis buscando equilibrar o tamanho das equipes e as turmas. A sugestão é um ponto de partida.</p>
     <div v-if="changed" class="banner warn mt">
       <div>
         <b>A composição das equipes foi alterada porque um participante ficou indisponível.</b>

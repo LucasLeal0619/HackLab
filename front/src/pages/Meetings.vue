@@ -8,18 +8,10 @@ import Empty from '../components/Empty.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
-import Tabs from '../components/Tabs.vue'
 import { toneFor } from '../components/tone.js'
 
 const DOC_CATS = ['Atas', 'Contratos', 'Empresas', 'Desafios', 'Finanças', 'Marketing', 'Relatórios', 'Outros']
 const DOC_FILTERS = ['Todos', ...DOC_CATS]
-const MEETING_TABS = [
-  { id: 'reunioes', label: 'Reuniões' },
-  { id: 'atas', label: 'Atas' },
-  { id: 'decisoes', label: 'Decisões' },
-  { id: 'pendencias', label: 'Pendências' },
-  { id: 'documentos', label: 'Documentos' },
-]
 const MEETING_TYPES = ['Geral', 'Setor', 'Consultores', 'Empresa', 'Administrativa', 'Extraordinária']
 const PRIORITIES = ['Baixa', 'Média', 'Alta', 'Urgente']
 const DUE_FILTERS = ['Dentro do prazo', 'Próximo do prazo', 'Vence hoje', 'Atrasado', 'Concluído', 'Sem prazo']
@@ -57,12 +49,23 @@ function ataProgress(item) {
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },
-  embedded: { type: Boolean, default: false },
 })
 
 const { state, update, flash } = useHack()
 
-const tab = computed(() => (['reunioes', 'atas', 'decisoes', 'pendencias', 'documentos'].includes(props.params.aba) ? props.params.aba : 'reunioes'))
+const tab = computed(() => {
+  if (props.params.lista === 'atas' || props.params.aba === 'atas') return 'atas'
+  if (props.params.lista === 'decisoes' || props.params.aba === 'decisoes') return 'decisoes'
+  if (['pendencias', 'documentos'].includes(props.params.aba)) return props.params.aba
+  return 'reunioes'
+})
+const pageCopy = computed(() => {
+  if (tab.value === 'pendencias') return ['Pendências', 'Acompanhe as atividades pendentes da organização.']
+  if (tab.value === 'documentos') return ['Documentos', 'Busque, organize e registre os documentos.']
+  if (tab.value === 'atas') return ['Atas', 'Atas registradas nas reuniões.']
+  if (tab.value === 'decisoes') return ['Decisões', 'Decisões vinculadas às reuniões.']
+  return ['Reuniões', 'Organize as reuniões, atas e decisões.']
+})
 const modal = ref(null)
 const form = ref({})
 const query = ref('')
@@ -159,9 +162,11 @@ function choose(id) {
   sector.value = ''
   priority.value = ''
   prazo.value = ''
-  const destination = id === 'pendencias' ? 'pendencias' : id === 'documentos' ? 'documentos' : 'reunioes'
-  const extra = id === 'atas' ? '&lista=atas' : id === 'decisoes' ? '&lista=decisoes' : ''
-  go(`gestao?aba=${destination}${extra}`)
+  if (id === 'pendencias') go('pendencias')
+  else if (id === 'documentos') go('documentos')
+  else if (id === 'atas') go('reunioes?lista=atas')
+  else if (id === 'decisoes') go('reunioes?lista=decisoes')
+  else go('reunioes')
 }
 
 function openPendencia(seed) {
@@ -397,11 +402,7 @@ function askRemove(kind, id, name) {
 </script>
 
 <template>
-  <Page
-    :crumbs="embedded ? '' : crumb"
-    :title="embedded ? '' : 'Reuniões e Pendências'"
-    :subtitle="embedded ? '' : 'Organize reuniões, atas, decisões, tarefas e documentos da gestão do Hackathon.'"
-  >
+  <Page :title="pageCopy[0]" :subtitle="pageCopy[1]">
     <template v-if="tab === 'reunioes'" #actions>
       <button class="btn" type="button" @click="openMeeting">+ Nova reunião</button>
     </template>
@@ -415,33 +416,15 @@ function askRemove(kind, id, name) {
       <button class="btn" type="button" @click="openDocument">+ Adicionar documento</button>
     </template>
 
-    <p v-if="embedded && tab === 'reunioes'" class="inline-links">
-      <button class="linkish" type="button" @click="go('gestao?aba=reunioes&lista=atas')">Ver todas as atas</button>
-      <button class="linkish" type="button" @click="go('gestao?aba=reunioes&lista=decisoes')">Ver decisões</button>
+    <p v-if="tab === 'reunioes'" class="inline-links">
+      <button class="linkish" type="button" @click="go('reunioes?lista=atas')">Ver todas as atas</button>
+      <button class="linkish" type="button" @click="go('reunioes?lista=decisoes')">Ver decisões</button>
     </p>
-    <p v-else-if="embedded && (tab === 'atas' || tab === 'decisoes')">
-      <button class="linkish" type="button" @click="go('gestao?aba=reunioes')">Voltar às reuniões</button>
+    <p v-else-if="tab === 'atas' || tab === 'decisoes'">
+      <button class="linkish" type="button" @click="go('reunioes')">Voltar às reuniões</button>
     </p>
-    <Tabs v-else-if="!embedded" :tabs="MEETING_TABS" :model-value="tab" @update:model-value="choose" />
 
-    <div v-if="tab === 'reunioes'" class="grid cols-3">
-      <article class="card"><h3>Reuniões</h3><div class="stat-value">{{ state.meetings.length || '—' }}</div></article>
-      <article class="card"><h3>Próximas</h3><div class="stat-value">{{ upcoming || '—' }}</div></article>
-      <article class="card"><h3>Atas pendentes</h3><div class="stat-value">{{ atasPendentes || '—' }}</div></article>
-    </div>
-    <div v-if="tab === 'pendencias'" class="grid cols-4">
-      <article class="card"><h3>Pendentes</h3><div class="stat-value">{{ pendingTasks || '—' }}</div></article>
-      <article class="card"><h3>Em andamento</h3><div class="stat-value">{{ doingTasks || '—' }}</div></article>
-      <article class="card"><h3>Atrasadas</h3><div class="stat-value">{{ lateTasks || '—' }}</div></article>
-      <article class="card"><h3>Concluídas</h3><div class="stat-value">{{ doneTasks || '—' }}</div></article>
-    </div>
-    <div v-if="tab === 'documentos'" class="grid cols-3">
-      <article class="card"><h3>Documentos</h3><div class="stat-value">{{ state.documents.length || '—' }}</div></article>
-      <article class="card"><h3>Atualizados recentemente</h3><div class="stat-value">{{ recentDocs || '—' }}</div></article>
-      <article class="card"><h3>Pendentes</h3><div class="stat-value">{{ pendingDocs || '—' }}</div></article>
-    </div>
-
-    <div v-if="tab !== 'documentos'" class="filters mt">
+    <div v-if="tab !== 'documentos'" class="filters">
       <input v-model="query" class="input" placeholder="Buscar" aria-label="Buscar" />
       <select v-if="tab === 'reunioes'" v-model="status" class="input" aria-label="Status">
         <option value="">Status</option>

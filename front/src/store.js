@@ -122,7 +122,7 @@ export function createHackStore() {
       if (remember) localStorage.setItem('hacklab.remember', normalized)
       else localStorage.removeItem('hacklab.remember')
       store.update((draft) => { draft.session = session })
-      go('inicio')
+      go('dashboard')
       return ''
     },
     logout() {
@@ -140,7 +140,7 @@ export function createHackStore() {
         }
       })
       store.flash(`Perfil de acesso alterado para ${profile}.`)
-      if (profile === 'Editor') go('inicio')
+      if (profile === 'Editor') go('dashboard')
     },
     setA11y(partial) {
       store.update((draft) => { draft.a11y = { ...draft.a11y, ...partial } })

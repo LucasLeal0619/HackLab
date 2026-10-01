@@ -50,7 +50,7 @@ function release() {
 <template>
   <Page crumbs="HackLab / Evento / Painel de Resultados" title="Painel de Resultados" subtitle="Visualize os resultados liberados do Hackathon.">
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('encerramento?aba=resultados')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('resultados')">Voltar</button>
       <button :class="state.resultsReleased ? 'btn' : 'btn ghost'" type="button" @click="go('apresentacao')">Modo Apresentação</button>
     </template>
     <div class="results-stage">

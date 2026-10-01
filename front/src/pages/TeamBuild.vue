@@ -78,13 +78,13 @@ function transfer() {
 
 <template>
   <Page v-if="!team" title="Equipe">
-    <template #actions><button class="btn ghost" type="button" @click="go('preparacao?aba=equipes')">Voltar</button></template>
+    <template #actions><button class="btn ghost" type="button" @click="go('equipes')">Voltar</button></template>
     <Empty title="Nenhuma equipe formada" text="Gere uma sugestão ou comece uma equipe manualmente.">
-      <template #action><button class="btn" type="button" @click="go('preparacao?aba=equipes')">Ir para Equipes</button></template>
+      <template #action><button class="btn" type="button" @click="go('equipes')">Ir para Equipes</button></template>
     </Empty>
   </Page>
   <Page v-else :crumbs="`Equipes / ${teamName(team.id)}`" :title="teamName(team.id)" subtitle="Ajuste a equipe manualmente. A sugestão automática não impede essas alterações.">
-    <template #actions><button class="btn ghost" type="button" @click="go('preparacao?aba=equipes')">Voltar</button></template>
+    <template #actions><button class="btn ghost" type="button" @click="go('equipes')">Voltar</button></template>
     <div class="card">
       <div class="row-between">
         <h3>{{ countText(active.length, 'participante disponível', 'participantes disponíveis') }}</h3>

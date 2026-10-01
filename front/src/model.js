@@ -32,49 +32,94 @@ export const ACCOUNTS = {
   },
 }
 
+const PREP_CHILDREN = [
+  { id: 'config', label: 'Evento' },
+  { id: 'participantes', label: 'Participantes' },
+  { id: 'equipes', label: 'Equipes' },
+  { id: 'empresas', label: 'Empresas' },
+  { id: 'desafios', label: 'Desafios' },
+]
+
+const GESTAO_CHILDREN = [
+  { id: 'setores', label: 'Setores' },
+  { id: 'reunioes', label: 'Reuniões' },
+  { id: 'pendencias', label: 'Pendências' },
+  { id: 'documentos', label: 'Documentos' },
+]
+
+const CLOSE_CHILDREN = [
+  { id: 'jurados', label: 'Jurados' },
+  { id: 'avaliacoes', label: 'Avaliações' },
+  { id: 'votacao-gestao', label: 'Votação' },
+  { id: 'resultados', label: 'Resultados' },
+]
+
 const FULL_NAV = [
-  { group: 'Início', items: [{ id: 'inicio', label: 'Início', icon: 'home' }] },
+  { group: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', icon: 'home' }] },
   {
     group: 'Organização',
     items: [
-      { id: 'preparacao', label: 'Preparação', icon: 'sliders' },
-      { id: 'gestao', label: 'Gestão', icon: 'grid' },
+      { id: 'preparacao', label: 'Preparação', icon: 'sliders', children: PREP_CHILDREN },
+      { id: 'gestao', label: 'Gestão', icon: 'grid', children: GESTAO_CHILDREN },
     ],
   },
   {
     group: 'Evento',
     items: [
       { id: 'evento', label: 'Modo Evento', icon: 'bolt' },
-      { id: 'encerramento', label: 'Encerramento', icon: 'star' },
+      { id: 'encerramento', label: 'Encerramento', icon: 'star', children: CLOSE_CHILDREN },
     ],
   },
+  { group: 'Administração', items: [{ id: 'usuarios', label: 'Usuários e Permissões', icon: 'users' }] },
   { group: 'Análise', items: [{ id: 'relatorios', label: 'Relatórios', icon: 'chart' }] },
 ]
 
 const EDITOR_NAV = [
-  { group: 'Início', items: [{ id: 'inicio', label: 'Início', icon: 'home' }] },
-  { group: 'Organização', items: [{ id: 'gestao', label: 'Gestão', icon: 'grid' }] },
+  { group: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', icon: 'home' }] },
+  { group: 'Organização', items: [{ id: 'gestao', label: 'Gestão', icon: 'grid', children: GESTAO_CHILDREN }] },
   { group: 'Evento', items: [{ id: 'evento', label: 'Modo Evento', icon: 'bolt' }] },
 ]
 
 export function navFor(profile) {
-  return profile === 'Editor' ? EDITOR_NAV : FULL_NAV
+  if (profile === 'Editor') return EDITOR_NAV
+  if (profile === 'Administrador') return FULL_NAV
+  return FULL_NAV.filter((group) => group.group !== 'Administração')
 }
 
 export const NAV = FULL_NAV
 
-const ACTIVE = {
-  inicio: ['dashboard'],
-  preparacao: ['config', 'participantes', 'equipes', 'montar', 'roletas', 'empresas', 'empresa', 'desafio', 'distribuicao'],
-  gestao: ['setores', 'reunioes', 'reuniao', 'manifestacao'],
-  evento: ['ingresso', 'validar', 'presenca', 'sala', 'ocorrencias'],
-  encerramento: ['jurados', 'criterios', 'avaliar', 'area-jurado', 'premiacao', 'painel', 'apresentacao'],
-  relatorios: ['relatorio'],
+const LEAF = {
+  dashboard: ['inicio', 'dashboard'],
+  config: ['config'],
+  participantes: ['participantes'],
+  equipes: ['equipes', 'montar', 'roletas'],
+  empresas: ['empresas', 'empresa'],
+  desafios: ['desafios', 'desafio', 'distribuicao'],
+  setores: ['setores'],
+  reunioes: ['reunioes', 'reuniao', 'manifestacao'],
+  pendencias: ['pendencias'],
+  documentos: ['documentos'],
+  evento: ['evento', 'ingresso', 'validar', 'presenca', 'sala', 'ocorrencias'],
+  jurados: ['jurados', 'criterios'],
+  avaliacoes: ['avaliacoes'],
+  'votacao-gestao': ['votacao-gestao'],
+  resultados: ['resultados', 'premiacao', 'painel'],
+  usuarios: ['usuarios'],
+  relatorios: ['relatorios', 'relatorio'],
 }
 
 export function navActive(id, path) {
-  if (path === id || path.startsWith(`${id}/`)) return true
-  return (ACTIVE[id] || []).includes(path)
+  if (path === id) return true
+  return (LEAF[id] || []).includes(path)
+}
+
+export function navParent(path) {
+  for (const group of FULL_NAV) {
+    for (const item of group.items) {
+      if (item.children?.some((child) => navActive(child.id, path))) return item.id
+    }
+  }
+  return ''
 }
 
 export function teamName(id) {
@@ -661,13 +706,13 @@ export function journeySteps(state) {
     return 'pendente'
   })
   const meta = [
-    ['Configurar evento', 'preparacao?aba=evento'],
-    ['Cadastrar participantes', 'preparacao?aba=participantes'],
-    ['Formar equipes', 'preparacao?aba=equipes'],
-    ['Empresas e desafios', 'preparacao?aba=empresas'],
-    ['Preparação operacional', 'gestao?aba=setores'],
+    ['Configurar evento', 'config'],
+    ['Cadastrar participantes', 'participantes'],
+    ['Formar equipes', 'equipes'],
+    ['Empresas e desafios', 'empresas'],
+    ['Preparação operacional', 'setores'],
     ['Realizar evento', 'evento'],
-    ['Encerramento', 'encerramento?aba=jurados'],
+    ['Encerramento', 'jurados'],
   ]
   return meta.map(([label, to], index) => ({ label, to, status: status[index] }))
 }

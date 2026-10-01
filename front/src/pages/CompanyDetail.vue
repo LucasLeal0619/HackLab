@@ -39,9 +39,9 @@ const challenges = computed(() => (company.value ? state.challenges.filter((item
     subtitle="Detalhes da empresa · dados deste protótipo."
   >
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('preparacao?aba=empresas')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('empresas')">Voltar</button>
       <Badge :tone="toneFor(company.status)">{{ company.status }}</Badge>
-      <button class="btn ghost" @click="go('empresas?aba=desafios')">Adicionar desafio</button>
+      <button class="btn ghost" @click="go('desafios')">Adicionar desafio</button>
     </template>
     <Tabs :tabs="DETAIL_TABS" :model-value="tab" @update:model-value="tab = $event" />
     <div v-if="tab === 'geral'" class="card">

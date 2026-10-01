@@ -7,11 +7,10 @@ import Empty from '../components/Empty.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
-import Tabs from '../components/Tabs.vue'
 import { toneFor } from '../components/tone.js'
 
 const props = defineProps({
-  params: { type: Object, default: () => ({}) },
+  mode: { type: String, default: 'empresas' },
 })
 
 const emptyCompany = {
@@ -20,16 +19,12 @@ const emptyCompany = {
   reps: [{ name: '', cargo: '', email: '', phone: '', principal: true }],
 }
 
-const COMPANY_TABS = [
-  { id: 'empresas', label: 'Empresas' },
-  { id: 'desafios', label: 'Desafios' },
-]
 const COMPANY_STATUSES = ['Todos', 'Em cadastro', 'Confirmada', 'Aguardando desafio', 'Com desafio', 'Inativa']
 const CHALLENGE_STATUSES = ['Todos', ...CHALLENGE_FLOW]
 const TIPOS = ['Empresa participante', 'Parceira', 'Patrocinadora', 'Apoio', 'Outro']
 
 const { state, update, flash } = useHack()
-const tab = ref(props.params.aba === 'desafios' ? 'desafios' : 'empresas')
+const tab = computed(() => (props.mode === 'desafios' ? 'desafios' : 'empresas'))
 const query = ref('')
 const status = ref('Todos')
 const modal = ref(false)
@@ -138,41 +133,21 @@ function confirmRemove() {
   flash(current.kind === 'empresa' ? 'Empresa excluída.' : 'Desafio excluído.')
 }
 
-function onTab(value) {
-  tab.value = value
-  status.value = 'Todos'
-  query.value = ''
-  go(value === 'desafios' ? 'preparacao?aba=empresas&inner=desafios' : 'preparacao?aba=empresas')
-}
-
 const companies = computed(() => state.companies.filter((company) => company.name.toLowerCase().includes(query.value.toLowerCase()) && (status.value === 'Todos' || company.status === status.value)))
 const challenges = computed(() => state.challenges.filter((item) => item.title.toLowerCase().includes(query.value.toLowerCase()) && (status.value === 'Todos' || item.status === status.value)))
-const challengeStats = computed(() => [
-  ['Cadastrados', state.challenges.length],
-  ['Em análise', state.challenges.filter((item) => item.status === 'Em análise').length],
-  ['Aprovados', state.challenges.filter((item) => item.status === 'Aprovado').length],
-  ['Distribuídos', state.challenges.filter((item) => item.status === 'Distribuído').length],
-])
 </script>
 
 <template>
   <Page
-    :crumbs="tab === 'empresas' ? 'HackLab / Organização / Empresas e Desafios / Empresas' : 'HackLab / Organização / Empresas e Desafios / Desafios'"
-    title="Empresas e Desafios"
-    subtitle="Gerencie as empresas participantes e os desafios propostos para o Hackathon."
+    :title="tab === 'empresas' ? 'Empresas' : 'Desafios'"
+    :subtitle="tab === 'empresas' ? 'Cadastre e acompanhe as empresas participantes.' : 'Cadastre os desafios e associe empresa e equipe.'"
   >
     <template #actions>
       <button v-if="tab === 'empresas'" class="btn" @click="openCompany()">+ Cadastrar empresa</button>
       <button v-else class="btn" @click="openChallenge()">+ Cadastrar desafio</button>
     </template>
-    <Tabs :tabs="COMPANY_TABS" :model-value="tab" @update:model-value="onTab" />
     <template v-if="tab === 'empresas'">
-      <div class="grid cols-3">
-        <article class="card stat"><div class="stat-label">Empresas cadastradas</div><div class="stat-value">{{ state.companies.length || '—' }}</div></article>
-        <article class="card stat"><div class="stat-label">Representantes</div><div class="stat-value">{{ state.companies.reduce((sum, company) => sum + company.reps.length, 0) || '—' }}</div></article>
-        <article class="card stat"><div class="stat-label">Com desafios</div><div class="stat-value">{{ state.companies.filter((company) => state.challenges.some((item) => item.companyId === company.id)).length || '—' }}</div></article>
-      </div>
-      <div class="filters mt">
+      <div class="filters">
         <input v-model="query" class="input" placeholder="Buscar empresa" />
         <select v-model="status" class="input">
           <option v-for="item in COMPANY_STATUSES" :key="item">{{ item }}</option>
@@ -216,10 +191,7 @@ const challengeStats = computed(() => [
       </div>
     </template>
     <template v-else>
-      <div class="grid cols-4">
-        <article v-for="[label, count] in challengeStats" :key="label" class="card stat"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ count || '—' }}</div></article>
-      </div>
-      <div class="filters mt">
+      <div class="filters">
         <input v-model="query" class="input" placeholder="Buscar desafio" />
         <select v-model="status" class="input">
           <option v-for="item in CHALLENGE_STATUSES" :key="item">{{ item }}</option>

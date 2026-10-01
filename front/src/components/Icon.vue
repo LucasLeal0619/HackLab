@@ -21,6 +21,7 @@ const PATHS = {
   logout: 'M10 7V5H5v14h5v-2M10 12h9M16 9l3 3-3 3',
   eye: 'M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   x: 'M6 6l12 12M18 6 6 18',
+  chevron: 'M9 6l6 6-6 6',
 }
 
 defineProps({

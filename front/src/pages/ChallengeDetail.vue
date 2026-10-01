@@ -68,7 +68,7 @@ function confirmAssign() {
     :subtitle="`${challenge.title} · ${company?.name || 'Empresa'}`"
   >
     <template #actions>
-      <button class="btn ghost" type="button" @click="go('preparacao?aba=empresas&inner=desafios')">Voltar</button>
+      <button class="btn ghost" type="button" @click="go('desafios')">Voltar</button>
       <template v-if="challenge.status === 'Em análise'">
         <button class="btn ghost" @click="ask = true">Solicitar ajustes</button>
         <button class="btn" @click="approve = true">Aprovar</button>
