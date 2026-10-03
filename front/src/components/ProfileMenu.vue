@@ -13,6 +13,8 @@ const root = ref(null)
 const session = computed(() => hack.state.session)
 const config = computed(() => profileConfig(session.value?.profile))
 const activeSector = computed(() => sectorScope(session.value)?.[0] || '')
+// Conta criada no cadastro público: o seletor de perfis não aparece (é só ferramenta de demonstração).
+const external = computed(() => Boolean(session.value?.external))
 
 function choose(profile) {
   open.value = false
@@ -62,8 +64,9 @@ onUnmounted(() => {
       <div class="row-between"><h3>Meu perfil</h3><button class="icon-btn" type="button" aria-label="Fechar" title="Fechar" @click="open = false"><Icon name="x" :size="16" /></button></div>
       <p class="profile-who"><b>{{ session?.name }}</b><span>{{ session?.email }}</span></p>
       <p class="profile-current"><span>Perfil atual</span><b>{{ session?.profile }}</b><small>{{ config.represents }}</small></p>
-      <p class="stat-hint">Protótipo: selecione um perfil para visualizar sua experiência no HackLab.</p>
-      <div class="profile-grid" role="group" aria-label="Perfis de acesso">
+      <button v-if="external && hack.state.demo" class="linkish profile-demo-exit" type="button" @click="choose('SuperAdmin')">Modo demonstração: voltar ao SuperAdmin</button>
+      <p v-if="!external" class="stat-hint">Protótipo: selecione um perfil para visualizar sua experiência no HackLab.</p>
+      <div v-if="!external" class="profile-grid" role="group" aria-label="Perfis de acesso">
         <button v-for="name in PROFILE_NAMES" :key="name" type="button" class="profile-option" :class="{ on: session?.profile === name }" :aria-pressed="session?.profile === name" @click="choose(name)">{{ name }}</button>
       </div>
       <template v-if="config.sectorScoped">

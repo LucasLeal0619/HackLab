@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { profileConfig } from '../access'
-import { companyOf, teamChallenge, teamName, uid } from '../model'
+import { assignedTeams, companyOf, teamChallenge, teamName, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
@@ -25,7 +25,11 @@ function isDemo(item) {
   return item.demo || /demonstrativo/i.test(item.name)
 }
 
-const team = computed(() => state.teams.find((item) => item.id === Number(props.params.id || 1)) || state.teams[0])
+// Jurado avalia só as equipes atribuídas a ele.
+const team = computed(() => {
+  const pool = state.session?.profile === 'Jurado' ? assignedTeams(state) : state.teams
+  return pool.find((item) => item.id === Number(props.params.id || 1)) || null
+})
 const meta = computed(() => (team.value ? teamLabel(team.value) : { challenge: null, company: null }))
 const criteria = computed(() => state.criteria.filter((item) => item.active !== false && item.status !== 'Inativo'))
 const judgeName = computed(() => state.session?.name || 'Jurado')
@@ -147,5 +151,9 @@ function applyCorrection() {
         <button class="btn" type="button" @click="applyCorrection">Salvar</button>
       </template>
     </Modal>
+  </Page>
+  <Page v-else title="Avaliação" subtitle="Esta equipe não está entre as suas avaliações.">
+    <Empty title="Equipe não atribuída a você." text="Volte para Minhas avaliações para ver as equipes que você avalia." />
+    <button class="btn" type="button" @click="go('area-jurado')">Voltar às avaliações</button>
   </Page>
 </template>

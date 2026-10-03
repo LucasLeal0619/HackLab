@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ACCOUNTS } from '../model'
-import { useHack } from '../store'
+import { go, useHack } from '../store'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import Logo from '../components/Logo.vue'
@@ -60,6 +60,11 @@ function submit(event) {
           <button type="button" class="linkish" @click="forgot = true">Esqueci minha senha</button>
         </div>
         <button class="btn full" type="submit">Entrar</button>
+        <div class="login-public">
+          <span>Ainda não possui cadastro?</span>
+          <button class="btn ghost full" type="button" @click="go('cadastro')">Criar cadastro público</button>
+          <small>Para votantes e jurados convidados. Contas da organização são criadas pelo SuperAdmin.</small>
+        </div>
         <div class="demo-accounts">
           <span><strong>Contas demonstrativas</strong> — qualquer senha com 4 ou mais caracteres.</span>
           <div class="demo-list">

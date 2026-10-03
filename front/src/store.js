@@ -1,8 +1,29 @@
 import { inject, reactive, ref, toRaw, watch } from 'vue'
 import { homeFor, migrateProfile, profileConfig } from './access'
-import { ACCOUNTS, KEY, SETORES, buildDemo, defaultState, normalizeTeams, seedUsers } from './model'
+import { ACCOUNTS, KEY, PUBLIC_CATEGORY, SETORES, buildDemo, defaultState, findInvite, isExternalProfile, normalizeTeams, seedUsers, uid } from './model'
 
 const STORE = 'hacklab'
+
+function migrateUser(item) {
+  const profile = migrateProfile(item.profile)
+  if (!isExternalProfile(profile) || item.origin) return { ...item, profile }
+  return { ...item, profile, origin: profile === 'Jurado' ? 'Convite' : 'Cadastro público', category: PUBLIC_CATEGORY[profile] }
+}
+
+// Sessão a partir de uma conta cadastrada (interna ou externa).
+function sessionOf(user) {
+  return {
+    userId: user.id,
+    email: user.email.trim().toLowerCase(),
+    name: user.name,
+    profile: user.profile,
+    sector: user.sector,
+    role: user.role,
+    // Cópia simples: a sessão não pode guardar arrays reativos da lista de usuários.
+    sectors: [...(user.sectors || [])],
+    external: isExternalProfile(user.profile),
+  }
+}
 
 function withSeedUsers(users) {
   const profiles = new Set(users.map((item) => item.profile))
@@ -29,7 +50,8 @@ function load() {
       teamSize: Number(parsed.teamSize) || 6,
       // Estado salvo antes da Spec 17: "Administrador" vira SuperAdmin e os novos perfis ganham usuários demonstrativos.
       session: parsed.session ? { ...parsed.session, profile: migrateProfile(parsed.session.profile) } : null,
-      users: parsed.users?.length ? withSeedUsers(parsed.users.map((item) => ({ ...item, profile: migrateProfile(item.profile) }))) : base.users,
+      users: parsed.users?.length ? withSeedUsers(parsed.users.map(migrateUser)) : base.users,
+      invites: parsed.invites || [],
       orgMembers: (parsed.orgMembers || []).map((item) => ({ ...item, profile: migrateProfile(item.profile) })),
       welcome: parsed.welcome ?? (hasWork ? 'existente' : null),
       demo: Boolean(parsed.demo) || /demonstrativ/i.test(JSON.stringify({
@@ -92,7 +114,13 @@ export function createHackStore() {
     state,
     toast: null,
     update(fn) {
-      const draft = structuredClone(toRaw(state))
+      // structuredClone recusa proxies reativos aninhados; nesse caso, cópia via JSON (o estado é só dados).
+      let draft
+      try {
+        draft = structuredClone(toRaw(state))
+      } catch {
+        draft = JSON.parse(JSON.stringify(state))
+      }
       fn(draft)
       replaceState(state, draft)
     },
@@ -112,14 +140,7 @@ export function createHackStore() {
       if (registered?.password && registered.password !== secret) return 'Senha incorreta.'
       const known = ACCOUNTS[normalized]
       const session = registered
-        ? {
-          email: normalized,
-          name: registered.name,
-          profile: registered.profile,
-          sector: registered.sector,
-          role: registered.role,
-          sectors: registered.sectors,
-        }
+        ? sessionOf(registered)
         : known
           ? { email: normalized, ...known }
           : {
@@ -134,6 +155,49 @@ export function createHackStore() {
       store.update((draft) => { draft.session = session })
       go(homeFor(session.profile))
       return ''
+    },
+    // Cadastro público demonstrativo: Votante livre; Jurado só com convite válido.
+    // Retorna { field, message } quando algo impede o cadastro.
+    register({ kind, name, email, password, code }) {
+      const normalized = email.trim().toLowerCase()
+      if (!isExternalProfile(kind)) return { field: 'kind', message: 'Escolha Votante ou Jurado.' }
+      const taken = ACCOUNTS[normalized] || (state.users || []).some((item) => item.email?.trim().toLowerCase() === normalized)
+      if (taken) return { field: 'email', message: 'Já existe um cadastro utilizando este e-mail.' }
+      const invite = kind === 'Jurado' ? findInvite(state, code) : null
+      if (kind === 'Jurado' && !invite) return { field: 'code', message: 'Código de convite inválido ou não reconhecido.' }
+      if (invite?.status === 'Utilizado') return { field: 'code', message: 'Este convite já foi utilizado.' }
+      const user = {
+        id: uid('usr'),
+        name: name.trim(),
+        email: normalized,
+        password: password.trim(),
+        profile: kind,
+        category: PUBLIC_CATEGORY[kind],
+        origin: invite ? 'Convite' : 'Cadastro público',
+        status: 'Ativo',
+        sector: '',
+        sectors: [],
+        role: '',
+        companyId: invite?.companyId || '',
+        ...(kind === 'Votante' ? { hasVoted: false } : {}),
+        createdAt: new Date().toLocaleDateString('pt-BR'),
+      }
+      store.update((draft) => {
+        draft.users.push(user)
+        if (invite) {
+          const current = draft.invites.find((item) => item.id === invite.id)
+          current.status = 'Utilizado'
+          current.usedBy = user.id
+          // A mesma pessoa: liga a conta ao jurado já cadastrado ou cria o registro de jurado.
+          const judge = draft.judges.find((item) => !item.userId && ((invite.repId && item.repId === invite.repId) || (item.email && item.email.toLowerCase() === normalized)))
+          if (judge) judge.userId = user.id
+          else draft.judges.push({ id: uid('jur'), userId: user.id, repId: invite.repId || '', name: user.name, companyId: invite.companyId || '', companyName: invite.companyName || '', cargo: 'Representante', email: normalized, status: 'Ativo' })
+        }
+        draft.session = sessionOf(user)
+      })
+      store.flash(kind === 'Jurado' ? 'Cadastro realizado. Seu acesso de Jurado está ativo.' : 'Cadastro realizado. Você já pode acessar a votação quando ela estiver disponível.')
+      go(homeFor(kind))
+      return null
     },
     logout() {
       store.update((draft) => { draft.session = null })
@@ -175,10 +239,13 @@ export function createHackStore() {
     },
     resetAll() {
       const fresh = defaultState()
-      fresh.session = state.session
+      // Conta externa criada no protótipo deixa de existir: a sessão dela também é encerrada.
+      fresh.session = state.session?.external ? null : state.session
       fresh.a11y = state.a11y
       replaceState(state, fresh)
-      store.flash('Dados do protótipo limpos. A sessão foi mantida.')
+      localStorage.removeItem('hacklab.vote.cast')
+      store.flash(fresh.session ? 'Dados do protótipo limpos. A sessão foi mantida.' : 'Dados do protótipo limpos.')
+      if (!fresh.session) go('login')
     },
   })
 

@@ -1,10 +1,12 @@
 <script setup>
-import { companyOf, teamChallenge, teamName } from '../model'
+import { computed } from 'vue'
+import { assignedTeams, companyOf, teamChallenge, teamName } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
 
 const { state } = useHack()
+const teams = computed(() => assignedTeams(state))
 
 function teamLabel(team) {
   const challenge = teamChallenge(state, team.id)
@@ -28,9 +30,9 @@ function myStatus(teamId) {
       <h1>Minhas avaliações</h1>
       <p>Escolha a equipe para avaliar. Suas notas ficam visíveis apenas para a organização.</p>
     </header>
-    <Empty v-if="state.teams.length === 0" title="Nenhuma equipe para avaliar." text="As equipes aparecerão aqui quando forem formadas pela organização." />
+    <Empty v-if="teams.length === 0" title="Nenhuma avaliação foi atribuída a você no momento." text="Quando a organização atribuir equipes, elas aparecerão aqui." />
     <ul v-else class="judge-list">
-      <li v-for="team in state.teams" :key="team.id" class="card judge-card">
+      <li v-for="team in teams" :key="team.id" class="card judge-card">
         <div class="judge-card-main">
           <h2>{{ teamName(team.id) }}</h2>
           <p>{{ teamLabel(team).challenge?.title || 'Desafio a definir' }}</p>

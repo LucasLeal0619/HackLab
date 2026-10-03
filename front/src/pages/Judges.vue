@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { canAccess } from '../access'
-import { companyOf, teamChallenge, teamName, uid } from '../model'
+import { companyOf, inviteCode, teamChallenge, teamName, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
@@ -147,6 +147,57 @@ function saveCriterion() {
   flash(editing ? 'Alterações salvas.' : 'Critério salvo.')
 }
 
+// Convite de jurado (demonstrativo): o código autoriza o cadastro público como Jurado. Nenhum e-mail é enviado.
+const inviteForm = ref(null)
+const inviteResult = ref(null)
+const inviteCompany = computed(() => state.companies.find((item) => item.id === inviteForm.value?.companyId))
+const inviteReps = computed(() => inviteCompany.value?.reps || [])
+
+function openInvite() {
+  inviteForm.value = { companyId: state.companies[0]?.id || '', repId: '', repName: '', email: '' }
+  inviteResult.value = null
+}
+
+function pickInviteRep(id) {
+  const rep = inviteReps.value.find((item) => item.id === id)
+  inviteForm.value = { ...inviteForm.value, repId: id, repName: rep?.name || '', email: rep?.email || inviteForm.value.email }
+}
+
+function generateInvite() {
+  const current = inviteForm.value
+  if (!current.repName.trim()) return flash('Informe o representante.', 'err')
+  if (!current.email.trim()) return flash('Informe o e-mail do representante.', 'err')
+  let code = inviteCode()
+  while ((state.invites || []).some((item) => item.code === code)) code = inviteCode()
+  const record = {
+    id: uid('conv'),
+    code,
+    repId: current.repId,
+    repName: current.repName.trim(),
+    companyId: current.companyId,
+    companyName: inviteCompany.value?.name || '',
+    email: current.email.trim().toLowerCase(),
+    status: 'Não utilizado',
+    usedBy: '',
+    createdAt: new Date().toLocaleDateString('pt-BR'),
+  }
+  update((draft) => {
+    if (!draft.invites) draft.invites = []
+    draft.invites.unshift(record)
+  })
+  inviteResult.value = record
+  inviteForm.value = null
+}
+
+async function copyInvite(code) {
+  try {
+    await navigator.clipboard.writeText(code)
+    flash('Código copiado.')
+  } catch {
+    flash('Não foi possível copiar. Selecione o código e copie manualmente.', 'err')
+  }
+}
+
 function openJudge() {
   form.value = { companyId: state.companies[0]?.id || '', repId: '', status: 'Ativo' }
   modal.value = 'juiz'
@@ -202,6 +253,7 @@ function removeRecord() {
 <template>
   <Page :title="heading[0]" :subtitle="heading[1]">
     <template #actions>
+      <button v-if="showJudgesBlock && showAdmin" class="btn ghost" type="button" @click="openInvite">Gerar convite</button>
       <button v-if="showJudgesBlock && showAdmin" class="btn" type="button" @click="openJudge">+ Adicionar jurado</button>
       <button v-else-if="showEvalBlock && showAdmin && canAccess(state.session?.profile, 'area-jurado')" class="btn" type="button" @click="go('area-jurado')">Abrir Área do Jurado</button>
     </template>
@@ -225,6 +277,24 @@ function removeRecord() {
                     <button class="btn ghost small" type="button" @click="removing = { kind: 'jurado', id: judge.id, name: judge.name }">Excluir</button>
                   </div>
                 </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="ops-title">Convites de jurado</h3>
+        <p class="stat-hint">O jurado usa o código no cadastro público. Convite utilizado não autoriza um novo cadastro.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Representante</th><th>Empresa</th><th>E-mail</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr v-if="!(state.invites || []).length"><td colspan="5"><Empty title="Nenhum convite gerado." text="Use “Gerar convite” para autorizar o cadastro de um jurado." /></td></tr>
+              <tr v-for="item in state.invites || []" :key="item.id">
+                <td><span class="ticket-code">{{ item.code }}</span> <Badge v-if="item.demo">Dado demonstrativo</Badge></td>
+                <td>{{ item.repName || '—' }}</td>
+                <td>{{ item.companyName || '—' }}</td>
+                <td>{{ item.email || '—' }}</td>
+                <td><Badge :tone="item.status === 'Utilizado' ? 'ok' : ''">{{ item.status }}</Badge></td>
               </tr>
             </tbody>
           </table>
@@ -364,6 +434,34 @@ function removeRecord() {
       </template>
     </Modal>
 
+    <Modal v-if="inviteForm" title="Convidar Jurado" subtitle="Gera um código para o cadastro público. Nenhum e-mail é enviado." @close="inviteForm = null">
+      <Field label="Empresa">
+        <select v-model="inviteForm.companyId" class="input" @change="inviteForm.repId = ''">
+          <option value="">Sem empresa</option>
+          <option v-for="item in state.companies" :key="item.id" :value="item.id">{{ item.name }}</option>
+        </select>
+      </Field>
+      <Field label="Representante" required>
+        <select v-if="inviteReps.length" class="input" :value="inviteForm.repId" @change="pickInviteRep($event.target.value)">
+          <option value="">Selecione o representante</option>
+          <option v-for="item in inviteReps" :key="item.id" :value="item.id">{{ item.name }}</option>
+        </select>
+        <input v-else v-model="inviteForm.repName" class="input" placeholder="Nome do representante" />
+      </Field>
+      <Field label="E-mail" required><input v-model="inviteForm.email" class="input" type="email" /></Field>
+      <template #footer>
+        <button class="btn ghost" type="button" @click="inviteForm = null">Cancelar</button>
+        <button class="btn" type="button" @click="generateInvite">Gerar código</button>
+      </template>
+    </Modal>
+    <Modal v-if="inviteResult" title="Código de convite" :subtitle="`${inviteResult.repName}${inviteResult.companyName ? ` · ${inviteResult.companyName}` : ''}`" @close="inviteResult = null">
+      <p class="invite-code">{{ inviteResult.code }}</p>
+      <p class="stat-hint">Entregue o código ao jurado. Ele cria o próprio cadastro em “Criar cadastro público”.</p>
+      <template #footer>
+        <button class="btn ghost" type="button" @click="inviteResult = null">Fechar</button>
+        <button class="btn" type="button" @click="copyInvite(inviteResult.code)">Copiar código</button>
+      </template>
+    </Modal>
     <Modal v-if="modal === 'criterio'" :title="form.id ? 'Editar critério' : 'Novo critério'" subtitle="Nenhum critério é oficial até a organização definir a avaliação." @close="modal = null">
       <Field label="Nome" required hint="Para um exemplo, use Critério demonstrativo 01."><input v-model="form.name" class="input" /></Field>
       <Field label="Descrição"><textarea v-model="form.description" class="input" /></Field>

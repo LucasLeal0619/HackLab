@@ -30,10 +30,11 @@ import JudgeArea from './pages/JudgeArea.vue'
 import Presentation from './pages/Presentation.vue'
 import PublicVote from './pages/PublicVote.vue'
 import Results from './pages/Results.vue'
+import Register from './pages/Register.vue'
 import Reports from './pages/Reports.vue'
 
-const OPEN = new Set(['login', 'votacao', 'apresentacao'])
-const BARE = new Set(['login', 'votacao', 'apresentacao', 'area-jurado', 'avaliar'])
+const OPEN = new Set(['login', 'cadastro', 'votacao', 'apresentacao'])
+const BARE = new Set(['login', 'cadastro', 'votacao', 'apresentacao', 'area-jurado', 'avaliar'])
 
 function legacyTarget(current, currentParams) {
   if (current === 'inicio') return 'dashboard'
@@ -75,7 +76,7 @@ const params = computed(() => route.value.params)
 const profile = computed(() => hack.state.session?.profile)
 const experience = computed(() => profileConfig(profile.value))
 // Validador, Jurado e Votante usam uma experiência focada, sem a Sidebar administrativa.
-const focused = computed(() => Boolean(hack.state.session) && experience.value.layout === 'focus' && path.value !== 'login')
+const focused = computed(() => Boolean(hack.state.session) && experience.value.layout === 'focus' && !['login', 'cadastro'].includes(path.value))
 const bare = computed(() => BARE.has(path.value) || !hack.state.session)
 
 const page = computed(() => path.value)
@@ -132,6 +133,7 @@ watch([path, params, () => hack.state.session, profile], () => {
   </Shell>
   <template v-else>
     <Login v-if="page === 'login'" />
+    <Register v-else-if="page === 'cadastro'" />
     <FocusFrame v-else-if="page === 'area-jurado'" title="Área do Jurado" exit-to="avaliacoes">
       <JudgeArea />
     </FocusFrame>

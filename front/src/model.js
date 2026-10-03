@@ -73,6 +73,48 @@ export function sectorSummaries(state) {
   ]
 }
 
+// Cadastro público: só Jurado (com convite) e Votante criam a própria conta.
+export const PUBLIC_PROFILES = ['Votante', 'Jurado']
+export const PUBLIC_CATEGORY = { Votante: 'Público', Jurado: 'Jurado' }
+export const INVITE_STATUS = ['Não utilizado', 'Utilizado']
+
+export function isExternalProfile(profile) {
+  return PUBLIC_PROFILES.includes(profile)
+}
+
+export function inviteCode() {
+  return `JUR-${Math.random().toString(36).slice(2, 8).toUpperCase().padEnd(6, '0')}`
+}
+
+export function findInvite(state, code) {
+  const wanted = String(code || '').trim().toUpperCase()
+  return wanted ? (state.invites || []).find((item) => item.code.toUpperCase() === wanted) || null : null
+}
+
+export function currentUser(state) {
+  const session = state.session
+  if (!session) return null
+  return (state.users || []).find((item) => (session.userId && item.id === session.userId) || item.email?.toLowerCase() === session.email) || null
+}
+
+// Registro do jurado ligado à conta atual (pelo vínculo da conta ou pelo e-mail).
+export function judgeOf(state) {
+  const session = state.session
+  if (!session) return null
+  const user = currentUser(state)
+  return (state.judges || []).find((item) => (user && item.userId === user.id) || (item.email && item.email.toLowerCase() === session.email)) || null
+}
+
+// Equipes atribuídas ao jurado: lista explícita, senão as equipes dos desafios da empresa dele.
+// Sem registro de jurado (perfil trocado pelo seletor do protótipo), mostra todas as equipes.
+export function assignedTeams(state) {
+  const judge = judgeOf(state)
+  if (!judge) return state.teams
+  if (Array.isArray(judge.teamIds)) return state.teams.filter((team) => judge.teamIds.includes(team.id))
+  if (!judge.companyId) return state.teams
+  return state.teams.filter((team) => (state.challenges || []).some((item) => item.teamId === team.id && item.companyId === judge.companyId))
+}
+
 // Ocorrências: fatos ocorridos (diferente de pendência, que é algo a fazer).
 export const OCC_CATEGORIES = ['Tecnologia', 'Infraestrutura', 'Produção', 'Participante', 'Equipe', 'Empresa', 'Organização', 'Outro']
 export const OCC_PRIORITIES = ['Baixa', 'Média', 'Alta', 'Urgente']
@@ -314,8 +356,9 @@ export function seedUsers() {
     user('usr-4', 'Editor demonstrativo 02', 'Editor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Registro audiovisual', status: 'Inativo' }),
     user('usr-5', 'Gestor demonstrativo', 'Gestor de Setor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Líder do setor' }),
     user('usr-6', 'Validador demonstrativo', 'Validador', { role: 'Check-in' }),
-    user('usr-7', 'Jurado demonstrativo', 'Jurado', { role: 'Representante', companyId: 'emp-1' }),
-    user('usr-8', 'Votante demonstrativo', 'Votante'),
+    // Cadastros externos (Jurado e Votante) criam a própria conta; estes são exemplos demonstrativos.
+    user('usr-7', 'Jurado demonstrativo 01', 'Jurado', { email: 'jurado.demo@exemplo.com', role: 'Representante', companyId: 'emp-1', origin: 'Convite', category: 'Jurado' }),
+    user('usr-8', 'Votante demonstrativo', 'Votante', { email: 'votante.demo@exemplo.com', origin: 'Cadastro público', category: 'Público', hasVoted: false }),
   ]
 }
 
@@ -361,6 +404,7 @@ export function defaultState() {
     checkins: [],
     occurrences: [],
     judges: [],
+    invites: [],
     criteria: [],
     evaluations: [],
     awards: [],
@@ -482,6 +526,8 @@ export function buildDemo(current) {
   return {
     ...current,
     demo: true,
+    // Contas externas demonstrativas (Jurado e Votante) sempre presentes nos dados de apresentação.
+    users: [...(current.users || []).filter((item) => !['usr-7', 'usr-8'].includes(item.id)), ...seedUsers().filter((item) => ['usr-7', 'usr-8'].includes(item.id))],
     welcome: 'demonstrativo',
     participantsConfirmed: true,
     teamSize: 6,
@@ -626,6 +672,7 @@ export function buildDemo(current) {
     judges: [
       {
         id: 'jur-1',
+        userId: 'usr-7',
         name: 'Jurado demonstrativo 01',
         companyId: 'emp-1',
         companyName: 'Empresa demonstrativa 01',
@@ -657,6 +704,10 @@ export function buildDemo(current) {
     awards: [
       { id: 'pre-1', name: 'Premiação demonstrativa 01', description: 'Prêmio demonstrativo definido pela organização.', team: teams[0] ? teamName(teams[0].id) : '', criterion: 'Resultado dos Jurados' },
       { id: 'pre-2', name: 'Premiação demonstrativa 02', description: 'Prêmio demonstrativo da votação.', team: teams[1] ? teamName(teams[1].id) : '', criterion: 'Votação do Público' },
+    ],
+    // Convite de jurado demonstrativo (não utilizado), para apresentar o cadastro público.
+    invites: [
+      { id: 'conv-demo', code: 'JUR-DEMO-01', demo: true, repId: 'rep-2', repName: 'Representante 02', companyId: 'emp-1', companyName: 'Empresa demonstrativa 01', email: 'rep02@exemplo.com', status: 'Não utilizado', usedBy: '', createdAt: '26/09/2026' },
     ],
     voting: {
       status: 'Encerrada',
