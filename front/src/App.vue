@@ -60,7 +60,7 @@ function legacyTarget(current, currentParams) {
     return 'jurados'
   }
   if (current === 'empresas' && currentParams.aba === 'desafios') return 'desafios'
-  // Antigo Modo Evento: presença e ingressos agora ficam em Ingressos e Presença.
+  // Antigo Modo Evento: presença e credenciais ficam em Credenciais e Presença.
   if (current === 'evento' || current === 'ingresso' || current === 'validar') {
     return [1, 2, 3].includes(Number(currentParams.dia)) ? `presenca?dia=${currentParams.dia}` : 'presenca'
   }

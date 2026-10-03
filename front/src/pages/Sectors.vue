@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { sectorScope } from '../access'
+import { isOperational, sectorScope } from '../access'
 import { EXPENSE_CATEGORIES, occurrenceSector, occurrenceStatus, SETORES, uid } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
@@ -118,6 +118,8 @@ function leadOf(name) {
 }
 
 const scope = computed(() => sectorScope(state.session))
+// Editor registra e atualiza informações do setor, mas não exclui registros nem administra integrantes.
+const operational = computed(() => isOperational(state.session))
 const opened = computed(() => {
   const wanted = SETORES.includes(props.params.setor) ? props.params.setor : ''
   if (!scope.value) return wanted
@@ -336,7 +338,7 @@ function editSchedule(item) {
   <Page v-else :crumbs="`${scope ? 'Meu Setor' : 'Setores'} / ${sector}`" :title="sector" :subtitle="COPY[sector]">
     <template #actions>
       <button v-if="!scope || scope.length > 1" class="btn ghost" type="button" @click="go('setores')">Voltar</button>
-      <button v-if="view === 'integrantes'" class="btn" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Novo integrante</button>
+      <button v-if="view === 'integrantes'" class="btn" :disabled="operational" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Novo integrante</button>
       <button v-else-if="view === 'mov'" class="btn" @click="open('mov', { kind: 'Receita', description: '', category: 'Outros', value: '', date: '', status: 'Pendente', supplier: '', origin: '', responsible: '', notes: '' })">+ Nova movimentação</button>
       <button v-else-if="view === 'fornecedores'" class="btn" @click="open('fornecedor', { name: '', category: 'Outros', contact: '', status: 'Ativo' })">+ Novo fornecedor</button>
       <button v-else-if="view === 'comprovantes'" class="btn" @click="open('comprovante', { name: '', description: '', note: '', fileName: '', responsible: '' })">+ Adicionar comprovante</button>
@@ -346,8 +348,8 @@ function editSchedule(item) {
       <button v-else-if="view === 'suporte'" class="btn" type="button" @click="reportOccurrence()">+ Registrar ocorrência</button>
       <button v-else-if="view === 'espacos'" class="btn" @click="open('espaco', { name: '', type: 'Sala', capacity: '', purpose: '', status: 'Não iniciado', notes: '' })">+ Novo espaço</button>
       <button v-else-if="view === 'materiais'" class="btn" @click="open('material', { name: '', needed: '', available: '', status: 'A definir' })">+ Novo material</button>
-      <button v-else-if="view === 'funcoes'" class="btn" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Nova função</button>
-      <button v-else-if="view === 'responsaveis'" class="btn" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Novo responsável</button>
+      <button v-else-if="view === 'funcoes'" class="btn" :disabled="operational" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Nova função</button>
+      <button v-else-if="view === 'responsaveis'" class="btn" :disabled="operational" @click="open('membro', { name: '', profile: 'Editor', sector: 'Recursos Humanos', func: '', status: 'Ativo', email: '' })">+ Novo responsável</button>
       <button v-else-if="view === 'cronograma'" class="btn" @click="open('campanha', { name: '', objective: '', audience: '', channel: 'Instagram', responsible: '', date: '', status: 'Não iniciado', description: '' })">+ Nova atividade</button>
       <button v-else-if="view === 'infra'" class="btn" @click="open('infra', { name: '', status: 'Não iniciado', responsible: '', notes: '' })">+ Novo item</button>
       <button v-else-if="view === 'operacao'" class="btn" @click="open('operacao', { name: '', description: '', status: 'Não iniciado' })">+ Novo item</button>
@@ -379,8 +381,8 @@ function editSchedule(item) {
               <td>
                 <div class="row-actions">
                   <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Perfil', item.profile], ['Função', item.func || '—'], ['E-mail', item.email || '—'], ['Status', item.status]] }">Visualizar</button>
-                  <button class="btn ghost small" type="button" @click="open('membro', { email: '', func: '', ...item })">Editar</button>
-                  <button class="btn ghost small" type="button" @click="removing = { list: 'orgMembers', id: item.id, name: item.name }">Excluir</button>
+                  <button v-if="!operational" class="btn ghost small" type="button" @click="open('membro', { email: '', func: '', ...item })">Editar</button>
+                  <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'orgMembers', id: item.id, name: item.name }">Excluir</button>
                 </div>
               </td>
             </tr>
@@ -401,8 +403,8 @@ function editSchedule(item) {
             <td>
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.func, lines: [['Integrante', item.name], ['Setor', item.sector || '—'], ['Perfil', item.profile], ['Status', item.status]] }">Visualizar</button>
-                <button class="btn ghost small" type="button" @click="open('membro', { email: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'orgMembers', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="open('membro', { email: '', ...item })">Editar</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'orgMembers', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -421,8 +423,8 @@ function editSchedule(item) {
             <td>
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Função', item.func], ['Setor', item.sector || '—'], ['E-mail', item.email || '—'], ['Status', item.status]] }">Visualizar</button>
-                <button class="btn ghost small" type="button" @click="open('membro', { email: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'orgMembers', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="open('membro', { email: '', ...item })">Editar</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'orgMembers', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -465,7 +467,7 @@ function editSchedule(item) {
                 <div class="row-actions">
                   <button class="btn ghost small" type="button" @click="detail = { title: item.description, lines: [['Tipo', item.tipo], ['Categoria', item.category || '—'], ['Valor', brl(item.valor)], ['Fornecedor', item.supplier || '—'], ['Data', item.date || '—'], ['Status', item.status]] }">Visualizar</button>
                   <button class="btn ghost small" type="button" @click="open('mov', { supplier: item.supplier || '', origin: item.origin || '', responsible: item.responsible || '', notes: item.notes || '', ...item, kind: item.tipo, value: item.valor === '' || item.valor == null ? '' : item.valor })">Editar</button>
-                  <button class="btn ghost small" type="button" @click="removing = { list: 'mov', id: item.id, name: item.description }">Excluir</button>
+                  <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'mov', id: item.id, name: item.description }">Excluir</button>
                 </div>
               </td>
             </tr>
@@ -488,7 +490,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Categoria', item.category], ['Contato', item.contact || '—'], ['Status', item.status]] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('fornecedor', { contact: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'suppliers', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'suppliers', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -509,7 +511,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Data', item.date || '—'], ['Arquivo', item.fileName || 'Upload demonstrativo'], ['Descrição', item.description || '—']] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('comprovante', { description: '', note: '', fileName: '', responsible: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'documents', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'documents', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -532,7 +534,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Canal', item.channel], ['Objetivo', item.objective || '—'], ['Público', item.audience || '—'], ['Responsável', item.responsible || '—'], ['Data', item.date || 'A definir'], ['Status', item.status]] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('campanha', { objective: '', audience: '', responsible: '', date: '', description: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'campaigns', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'campaigns', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -560,7 +562,7 @@ function editSchedule(item) {
                 <div class="row-actions">
                   <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Tipo', item.kind], ['Canal', item.channel || '—'], ['Responsável', item.responsible || '—'], ['Data', item.date || 'A definir'], ['Status', item.status]] }">Visualizar</button>
                   <button class="btn ghost small" type="button" @click="open('conteudo', { responsible: '', date: '', ...item })">Editar</button>
-                  <button class="btn ghost small" type="button" @click="removing = { list: 'contents', id: item.id, name: item.name }">Excluir</button>
+                  <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'contents', id: item.id, name: item.name }">Excluir</button>
                 </div>
               </td>
             </tr>
@@ -582,7 +584,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Tipo', item.source === 'campanha' ? 'Campanha' : 'Conteúdo'], ['Data', item.date || 'A definir'], ['Status', item.status], ['Responsável', item.responsible || '—']] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="editSchedule(item)">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: item.source === 'campanha' ? 'campaigns' : 'contents', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: item.source === 'campanha' ? 'campaigns' : 'contents', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -606,7 +608,7 @@ function editSchedule(item) {
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Categoria', item.category], ['Quantidade', item.qty], ['Local', item.place || 'A definir'], ['Status', item.status], ['Observação', item.notes || '—']] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('equip', { place: '', notes: '', ...item })">Editar</button>
                 <button v-if="item.status === 'Com problema'" class="btn ghost small" type="button" @click="reportOccurrence({ titulo: `Problema em ${item.name}`, local: item.place || '' })">Registrar ocorrência</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'equipment', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'equipment', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -627,7 +629,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Responsável', item.responsible || '—'], ['Status', item.status], ['Observação', item.notes || '—']] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('infra', { responsible: '', notes: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'infra', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'infra', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -662,7 +664,7 @@ function editSchedule(item) {
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Tipo', item.type], ['Uso', item.purpose || '—'], ['Capacidade', item.capacity || '—'], ['Status', item.status]] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('espaco', { purpose: '', capacity: '', notes: '', type: item.type || 'Sala', ...item })">Editar</button>
                 <button class="btn ghost small" type="button" @click="reportOccurrence({ local: item.name })">Registrar ocorrência</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'spaces', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'spaces', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -684,7 +686,7 @@ function editSchedule(item) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Necessário', item.needed || '—'], ['Disponível', item.available || '—'], ['Status', item.status]] }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="open('material', { needed: '', available: '', ...item })">Editar</button>
-                <button class="btn ghost small" type="button" @click="removing = { list: 'materials', id: item.id, name: item.name }">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'materials', id: item.id, name: item.name }">Excluir</button>
               </div>
             </td>
           </tr>
@@ -706,7 +708,7 @@ function editSchedule(item) {
                 <div class="row-actions">
                   <button class="btn ghost small" type="button" @click="detail = { title: item.name, lines: [['Descrição', item.description || '—'], ['Status', item.status]] }">Visualizar</button>
                   <button class="btn ghost small" type="button" @click="open('operacao', { description: '', ...item })">Editar</button>
-                  <button class="btn ghost small" type="button" @click="removing = { list: 'operations', id: item.id, name: item.name }">Excluir</button>
+                  <button v-if="!operational" class="btn ghost small" type="button" @click="removing = { list: 'operations', id: item.id, name: item.name }">Excluir</button>
                 </div>
               </td>
             </tr>
@@ -739,9 +741,10 @@ function editSchedule(item) {
         <Field label="Nome" required><input v-model="form.name" class="input" /></Field>
         <Field label="Perfil">
           <select v-model="form.profile" class="input">
-            <option>Administrador</option>
-            <option>Consultor</option>
+            <option>SuperAdmin</option>
+            <option>Gestor de Setor</option>
             <option>Editor</option>
+            <option>Consultor</option>
           </select>
         </Field>
         <Field label="Função"><input v-model="form.func" class="input" /></Field>

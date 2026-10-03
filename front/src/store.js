@@ -1,8 +1,14 @@
 import { inject, reactive, ref, toRaw, watch } from 'vue'
-import { homeFor } from './access'
-import { ACCOUNTS, KEY, SETORES, buildDemo, defaultState, normalizeTeams } from './model'
+import { homeFor, migrateProfile, profileConfig } from './access'
+import { ACCOUNTS, KEY, SETORES, buildDemo, defaultState, normalizeTeams, seedUsers } from './model'
 
 const STORE = 'hacklab'
+
+function withSeedUsers(users) {
+  const profiles = new Set(users.map((item) => item.profile))
+  const ids = new Set(users.map((item) => item.id))
+  return [...users, ...seedUsers().filter((item) => !profiles.has(item.profile) && !ids.has(item.id))]
+}
 
 function load() {
   try {
@@ -21,7 +27,10 @@ function load() {
       students: (parsed.students || []).map((student) => ({ ...student, availability: student.availability || 'Disponível' })),
       participantsConfirmed: Boolean(parsed.participantsConfirmed),
       teamSize: Number(parsed.teamSize) || 6,
-      users: parsed.users?.length ? parsed.users : base.users,
+      // Estado salvo antes da Spec 17: "Administrador" vira SuperAdmin e os novos perfis ganham usuários demonstrativos.
+      session: parsed.session ? { ...parsed.session, profile: migrateProfile(parsed.session.profile) } : null,
+      users: parsed.users?.length ? withSeedUsers(parsed.users.map((item) => ({ ...item, profile: migrateProfile(item.profile) }))) : base.users,
+      orgMembers: (parsed.orgMembers || []).map((item) => ({ ...item, profile: migrateProfile(item.profile) })),
       welcome: parsed.welcome ?? (hasWork ? 'existente' : null),
       demo: Boolean(parsed.demo) || /demonstrativ/i.test(JSON.stringify({
         students: parsed.students,
@@ -116,9 +125,9 @@ export function createHackStore() {
           : {
             email: normalized,
             name: 'Usuário Demonstrativo',
-            profile: 'Administrador',
-            sector: 'Gestão Geral',
-            role: 'Administrador',
+            profile: 'SuperAdmin',
+            sector: '',
+            role: 'Equipe de TI',
           }
       if (remember) localStorage.setItem('hacklab.remember', normalized)
       else localStorage.removeItem('hacklab.remember')
@@ -135,7 +144,7 @@ export function createHackStore() {
       store.update((draft) => {
         if (!draft.session) return
         draft.session.profile = profile
-        if (profile === 'Editor') {
+        if (profileConfig(profile).sectorScoped) {
           const sectors = (draft.session.sectors || []).filter((name) => SETORES.includes(name))
           draft.session.sectors = sectors.length ? sectors : ['Tecnologia']
           if (!draft.session.sectors.includes(draft.session.sector)) draft.session.sector = draft.session.sectors[0]

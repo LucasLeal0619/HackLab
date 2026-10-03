@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { SETORES, uid } from '../model'
-import { inScope, sectorScope } from '../access'
+import { inScope, isOperational, sectorScope } from '../access'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
@@ -61,6 +61,10 @@ const tab = computed(() => {
   return 'reunioes'
 })
 const pageCopy = computed(() => {
+  const scope = sectorScope(state.session)
+  if (tab.value === 'pendencias' && operational.value) return ['Minhas Pendências', `Pendências de ${scope.join(' e ')}. Você atualiza as que estão sob sua responsabilidade.`]
+  if (tab.value === 'pendencias' && scope) return ['Pendências', `Pendências de ${scope.join(' e ')}: atribua responsáveis, prioridades e conclua demandas.`]
+  if (tab.value === 'documentos' && scope) return ['Documentos', `Documentos de ${scope.join(' e ')}.`]
   if (tab.value === 'pendencias') return ['Pendências', 'Acompanhe as atividades pendentes da organização.']
   if (tab.value === 'documentos') return ['Documentos', 'Busque, organize e registre os documentos.']
   if (tab.value === 'atas') return ['Atas', 'Atas registradas nas reuniões.']
@@ -92,6 +96,12 @@ const crumb = computed(() => (tab.value === 'reunioes'
 
 // Editor vê pendências e documentos apenas dos setores atribuídos.
 const sectorOptions = computed(() => sectorScope(state.session) || SETORES)
+// Editor (visão operacional): cria e atualiza só as próprias pendências; não exclui nem reatribui.
+const operational = computed(() => isOperational(state.session))
+const myName = computed(() => state.session?.name || '')
+function canEditTask(item) {
+  return !operational.value || item.responsible === myName.value
+}
 const scopedTasks = computed(() => state.tasks.filter((item) => inScope(state.session, item.sector)))
 const scopedDocs = computed(() => state.documents.filter((item) => inScope(state.session, item.sector)))
 const meetings = computed(() => state.meetings.filter((item) => item.title.toLowerCase().includes(query.value.toLowerCase()) && (!status.value || item.status === status.value)))
@@ -186,6 +196,8 @@ function openPendencia(seed) {
     priority: 'Média',
     origin: '',
     decisionId: '',
+    ...(sectorScope(state.session) ? { sector: sectorScope(state.session)[0] } : {}),
+    ...(operational.value ? { responsible: myName.value } : {}),
     ...(seed || {}),
   }
   modal.value = 'pendencia'
@@ -569,8 +581,8 @@ function askRemove(kind, id, name) {
             <td>
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { type: 'pendencia', id: item.id }">Visualizar</button>
-                <button class="btn ghost small" type="button" @click="openPendencia(item)">Editar</button>
-                <button class="btn ghost small" type="button" @click="askRemove('pendencia', item.id, item.title)">Excluir</button>
+                <button v-if="canEditTask(item)" class="btn ghost small" type="button" @click="openPendencia(item)">Editar</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="askRemove('pendencia', item.id, item.title)">Excluir</button>
               </div>
             </td>
           </tr>
@@ -593,7 +605,7 @@ function askRemove(kind, id, name) {
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detail = { type: 'doc', id: item.id }">Visualizar</button>
                 <button class="btn ghost small" type="button" @click="editDocument(item)">Editar</button>
-                <button class="btn ghost small" type="button" @click="askRemove('doc', item.id, item.name)">Excluir</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="askRemove('doc', item.id, item.name)">Excluir</button>
               </div>
             </td>
           </tr>
@@ -671,7 +683,7 @@ function askRemove(kind, id, name) {
       <dt>Observação</dt><dd>{{ detailTask.notes || '—' }}</dd>
     </dl>
     <template #footer>
-      <button v-if="detailTask.status !== 'Concluído'" class="btn" type="button" @click="completeTask">Marcar como concluída</button>
+      <button v-if="detailTask.status !== 'Concluído' && canEditTask(detailTask)" class="btn" type="button" @click="completeTask">Marcar como concluída</button>
       <button v-else class="btn ghost" type="button" @click="detail = null">Fechar</button>
     </template>
   </Drawer>
@@ -764,8 +776,9 @@ function askRemove(kind, id, name) {
         </select>
       </Field>
       <Field label="Responsável">
-        <select v-model="form.responsible" class="input">
+        <select v-model="form.responsible" class="input" :disabled="operational">
           <option value="">Selecione</option>
+          <option v-if="operational">{{ myName }}</option>
           <option v-for="user in state.users" :key="user.id">{{ user.name }}</option>
         </select>
       </Field>

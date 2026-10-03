@@ -1,8 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { canAccess, inScope, sectorScope } from '../access'
+import { canAccess, inScope, isOperational, sectorScope } from '../access'
 import { currentEventDay, isAvailable, journeySteps, occurrenceSector, occurrenceStatus, plural, presenceOf } from '../model'
-import { sectorFacts } from '../reports/shared'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import DashboardDomain from '../components/DashboardDomain.vue'
@@ -62,7 +61,7 @@ const adminDomains = computed(() => [
   {
     title: 'Evento',
     to: `presenca?dia=${eventDay.value}`,
-    action: 'Ver Ingressos e Presença',
+    action: 'Ver Credenciais e Presença',
     items: [
       { label: `Presentes · Dia ${eventDay.value}`, value: dayRecords.value.length, to: `presenca?dia=${eventDay.value}` },
       { label: 'Não registrados', value: state.students.length - dayRecords.value.length, to: `presenca?dia=${eventDay.value}` },
@@ -133,18 +132,35 @@ const attention = computed(() => {
   if (state.teams.length && state.evaluations.length === 0) items.push({ tone: 'info', text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
   return items.filter((item) => allowed(item.to)).sort((x, y) => RANK[x.tone] - RANK[y.tone])
 })
+// Gestor de Setor e Editor: tudo recortado pelos setores atribuídos.
 const sectors = computed(() => sectorScope(state.session) || [])
+const scoped = computed(() => sectors.value.length > 0)
+const operational = computed(() => isOperational(state.session))
+const myName = computed(() => state.session?.name || '')
+const URGENT = ['Alta', 'Urgente']
+const sectorTasks = computed(() => state.tasks.filter((task) => inScope(state.session, task.sector) && task.status !== 'Concluído'))
+const myTasks = computed(() => sectorTasks.value.filter((task) => task.responsible === myName.value))
+const sectorOcc = computed(() => openOccList.value.filter((item) => inScope(state.session, occurrenceSector(item))))
+const sectorDocs = computed(() => state.documents.filter((item) => inScope(state.session, item.sector)))
+const sectorMembers = computed(() => (state.orgMembers || []).filter((item) => inScope(state.session, item.sector)))
 const sectorLink = (name) => `setores?setor=${encodeURIComponent(name)}`
-const mySectors = computed(() => sectors.value.map((name) => ({
+const managerSummary = computed(() => sectors.value.map((name) => ({
   title: name,
   to: sectorLink(name),
   action: 'Abrir setor',
-  items: sectorFacts(state, name).map(([label, value]) => ({ label, value, to: sectorLink(name) })),
+  items: [
+    { label: 'Pendências abertas', value: sectorTasks.value.filter((task) => task.sector === name).length, to: 'pendencias' },
+    { label: 'Ocorrências abertas', value: sectorOcc.value.filter((item) => occurrenceSector(item) === name).length, to: 'ocorrencias' },
+    { label: 'Membros', value: sectorMembers.value.filter((item) => item.sector === name).length, to: sectorLink(name) },
+    { label: 'Documentos', value: sectorDocs.value.filter((item) => item.sector === name).length, to: 'documentos' },
+  ],
 })))
-const editorTasks = computed(() => state.tasks.filter((task) => inScope(state.session, task.sector) && task.status !== 'Concluído'))
-const calls = computed(() => openOccList.value.filter((item) => inScope(state.session, occurrenceSector(item))))
+const priorities = computed(() => [
+  ...sectorOcc.value.filter((item) => URGENT.includes(item.priority)).map((item) => ({ id: item.id, kind: 'Ocorrência', title: item.title, tone: 'bad', badge: item.priority, to: 'ocorrencias' })),
+  ...sectorTasks.value.filter((task) => URGENT.includes(task.priority)).map((task) => ({ id: task.id, kind: 'Pendência', title: task.title, tone: 'warn', badge: task.priority, to: 'pendencias' })),
+].slice(0, 5))
 const recent = computed(() => [
-  ...state.documents.filter((item) => inScope(state.session, item.sector)).slice(0, 3).map((item) => ({ id: item.id, kind: 'Documento', title: item.name, when: item.date, to: 'documentos' })),
+  ...sectorDocs.value.slice(0, 3).map((item) => ({ id: item.id, kind: 'Documento', title: item.name, when: item.date, to: 'documentos' })),
   ...state.occurrences.filter((item) => inScope(state.session, occurrenceSector(item))).slice(0, 3).map((item) => ({ id: item.id, kind: 'Ocorrência', title: item.title, when: item.at || (item.day ? `Dia ${item.day}` : ''), to: 'ocorrencias' })),
 ].slice(0, 5))
 
@@ -159,43 +175,89 @@ function statusLabel(status) {
 
 <template>
   <Page
-    v-if="profile === 'Editor'"
+    v-if="scoped && !operational"
     title="Dashboard"
+    :subtitle="`Gestão do setor ${sectors.join(' e ')}.`"
+  >
+    <div class="dashboard-cockpit editor-cockpit">
+      <div class="editor-grid">
+        <DashboardDomain v-for="item in managerSummary" :key="item.title" v-bind="item" />
+        <section class="card dash-block" aria-labelledby="dash-priorities">
+          <div class="dash-block-head">
+            <h2 id="dash-priorities" class="dash-block-title">Prioridades</h2>
+          </div>
+          <p v-if="priorities.length === 0" class="dash-empty"><span class="dash-signal ok">Tudo em ordem</span> Nada com prioridade alta ou urgente.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="item in priorities" :key="item.id">
+              <a :href="`#/${item.to}`" @click.prevent="go(item.to)"><i class="dash-dot" :class="item.tone" aria-hidden="true" /><span><small class="stat-hint">{{ item.kind }}</small> {{ item.title }}</span><Badge :tone="toneFor(item.badge)">{{ item.badge }}</Badge></a>
+            </li>
+          </ul>
+        </section>
+        <section class="card dash-block" aria-labelledby="dash-members">
+          <div class="dash-block-head">
+            <h2 id="dash-members" class="dash-block-title">Membros</h2>
+          </div>
+          <p v-if="sectorMembers.length === 0" class="dash-empty">Nenhum integrante cadastrado no setor.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="item in sectorMembers" :key="item.id">
+              <a :href="`#/${sectorLink(item.sector)}`" @click.prevent="go(sectorLink(item.sector))"><span>{{ item.name }} <small class="stat-hint">{{ item.profile }}</small></span><small class="stat-hint">{{ item.func || '—' }}</small></a>
+            </li>
+          </ul>
+        </section>
+        <section class="card dash-block" aria-labelledby="dash-recent">
+          <h2 id="dash-recent" class="dash-block-title">Atividade recente</h2>
+          <p v-if="recent.length === 0" class="dash-empty">Nenhuma atividade registrada no setor.</p>
+          <ul v-else class="dash-actions">
+            <li v-for="item in recent" :key="item.id">
+              <a :href="`#/${item.to}`" @click.prevent="go(item.to)"><span><small class="stat-hint">{{ item.kind }}</small> {{ item.title }}</span><small class="stat-hint">{{ item.when }}</small></a>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </Page>
+
+  <Page
+    v-else-if="scoped"
+    title="Meu trabalho"
     :subtitle="`Seu trabalho em ${sectors.join(' e ')}.`"
   >
     <div class="dashboard-cockpit editor-cockpit">
       <div class="editor-grid">
-        <DashboardDomain v-for="item in mySectors" :key="item.title" v-bind="item" />
         <section class="card dash-block" aria-labelledby="dash-my-tasks">
           <div class="dash-block-head">
             <h2 id="dash-my-tasks" class="dash-block-title">Minhas pendências</h2>
             <a class="dash-more" href="#/pendencias" @click.prevent="go('pendencias')">Ver pendências →</a>
           </div>
-          <p v-if="editorTasks.length === 0" class="dash-empty"><span class="dash-signal ok">Em dia</span> Nenhuma pendência aberta.</p>
+          <p v-if="myTasks.length === 0" class="dash-empty"><span class="dash-signal ok">Em dia</span> Nenhuma pendência sob sua responsabilidade.</p>
           <ul v-else class="dash-actions">
-            <li v-for="task in editorTasks.slice(0, 4)" :key="task.id">
+            <li v-for="task in myTasks.slice(0, 4)" :key="task.id">
               <a href="#/pendencias" @click.prevent="go('pendencias')"><span>{{ task.title }}</span><Badge :tone="toneFor(task.status)">{{ task.status }}</Badge></a>
             </li>
           </ul>
+          <p class="stat-hint">{{ sectorTasks.length }} {{ sectorTasks.length === 1 ? 'pendência aberta' : 'pendências abertas' }} no setor.</p>
         </section>
         <section class="card dash-block" aria-labelledby="dash-my-occ">
           <div class="dash-block-head">
-            <h2 id="dash-my-occ" class="dash-block-title">Ocorrências do setor</h2>
+            <h2 id="dash-my-occ" class="dash-block-title">Ocorrências relacionadas</h2>
             <a class="dash-more" href="#/ocorrencias" @click.prevent="go('ocorrencias')">Ver ocorrências →</a>
           </div>
-          <p v-if="calls.length === 0" class="dash-empty"><span class="dash-signal ok">Tudo em ordem</span> Nenhuma ocorrência aberta.</p>
+          <p v-if="sectorOcc.length === 0" class="dash-empty"><span class="dash-signal ok">Tudo em ordem</span> Nenhuma ocorrência aberta.</p>
           <ul v-else class="dash-actions">
-            <li v-for="item in calls.slice(0, 4)" :key="item.id">
-              <a href="#/ocorrencias" @click.prevent="go('ocorrencias')"><i class="dash-dot" :class="item.priority === 'Urgente' || item.priority === 'Alta' ? 'bad' : 'warn'" aria-hidden="true" /><span>{{ item.title }}</span><Badge :tone="toneFor(item.priority)">{{ item.priority }}</Badge></a>
+            <li v-for="item in sectorOcc.slice(0, 4)" :key="item.id">
+              <a href="#/ocorrencias" @click.prevent="go('ocorrencias')"><i class="dash-dot" :class="URGENT.includes(item.priority) ? 'bad' : 'warn'" aria-hidden="true" /><span>{{ item.title }}</span><Badge :tone="toneFor(item.priority)">{{ item.priority }}</Badge></a>
             </li>
           </ul>
         </section>
-        <section class="card dash-block" aria-labelledby="dash-recent">
-          <h2 id="dash-recent" class="dash-block-title">Atividades recentes</h2>
-          <p v-if="recent.length === 0" class="dash-empty">Nenhuma atividade registrada no setor.</p>
+        <section class="card dash-block" aria-labelledby="dash-docs">
+          <div class="dash-block-head">
+            <h2 id="dash-docs" class="dash-block-title">Documentos recentes</h2>
+            <a class="dash-more" href="#/documentos" @click.prevent="go('documentos')">Ver documentos →</a>
+          </div>
+          <p v-if="sectorDocs.length === 0" class="dash-empty">Nenhum documento do setor.</p>
           <ul v-else class="dash-actions">
-            <li v-for="item in recent" :key="item.id">
-              <a :href="`#/${item.to}`" @click.prevent="go(item.to)"><span><small class="stat-hint">{{ item.kind }}</small> {{ item.title }}</span><small class="stat-hint">{{ item.when }}</small></a>
+            <li v-for="item in sectorDocs.slice(0, 4)" :key="item.id">
+              <a href="#/documentos" @click.prevent="go('documentos')"><span>{{ item.name }}</span><small class="stat-hint">{{ item.date }}</small></a>
             </li>
           </ul>
         </section>

@@ -164,7 +164,7 @@ function setTicketStatus(value) {
 </script>
 
 <template>
-  <Page title="Ingressos e Presença" subtitle="Gerencie os ingressos e registre a presença dos participantes durante os dias do Hackathon.">
+  <Page title="Credenciais e Presença" subtitle="Gerencie as credenciais e registre a presença dos participantes durante os dias do Hackathon.">
     <template #actions>
       <button class="btn ghost" type="button" @click="openManual()">Registrar presença manualmente</button>
       <button class="btn" type="button" @click="openScan">Validar QR Code</button>

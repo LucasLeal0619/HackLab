@@ -31,7 +31,7 @@ const ITEMS = {
       { id: 'documentos', label: 'Documentos' },
     ],
   },
-  presenca: { id: 'presenca', label: 'Ingressos e Presença', icon: 'ticket' },
+  presenca: { id: 'presenca', label: 'Credenciais e Presença', icon: 'ticket' },
   encerramento: {
     id: 'encerramento',
     label: 'Encerramento',
@@ -74,13 +74,16 @@ const LEAF = {
   relatorios: ['relatorios', 'relatorio'],
 }
 
+const SECTOR_WORK = { id: 'setores', label: 'Meu Setor', icon: 'grid' }
+
+// Ordem = ordem do seletor "Meu perfil".
 export const ACCESS_PROFILES = {
-  Administrador: {
-    key: 'admin',
-    represents: 'Equipe de TI / administração do HackLab',
+  SuperAdmin: {
+    key: 'superadmin',
+    represents: 'Administração geral do HackLab, com acesso global',
     home: 'dashboard',
     layout: 'admin',
-    adminTools: true,
+    globalAdmin: true,
     nav: [
       { group: 'Dashboard', items: [ITEMS.dashboard] },
       { group: 'Organização', items: [ITEMS.preparacao, ITEMS.gestao] },
@@ -88,12 +91,12 @@ export const ACCESS_PROFILES = {
       { group: 'Análise', items: [ITEMS.relatorios] },
       { group: 'Administração', items: [ITEMS.usuarios] },
     ],
-    // Experiências focadas que o Administrador pode abrir a partir da gestão.
+    // Experiências focadas que o SuperAdmin pode abrir a partir da gestão.
     extra: ['area-jurado', 'avaliar', 'votacao', 'apresentacao'],
   },
   Consultor: {
     key: 'consultant',
-    represents: 'Professores: acompanhamento, consulta e orientação',
+    represents: 'Professores: acompanhamento, orientação e supervisão',
     home: 'dashboard',
     layout: 'admin',
     nav: [
@@ -104,19 +107,40 @@ export const ACCESS_PROFILES = {
     ],
     extra: ['apresentacao'],
   },
-  Editor: {
-    key: 'editor',
-    represents: 'Membros da equipe de um ou mais setores',
+  'Gestor de Setor': {
+    key: 'sectorManager',
+    represents: 'Liderança do setor atribuído, sem acesso global',
     home: 'dashboard',
     layout: 'admin',
     sectorScoped: true,
     nav: [
       { group: 'Dashboard', items: [ITEMS.dashboard] },
+      { group: 'Meu setor', items: [SECTOR_WORK] },
+      {
+        group: 'Gestão',
+        items: [
+          { id: 'pendencias', label: 'Pendências', icon: 'check' },
+          { id: 'ocorrencias', label: 'Ocorrências', icon: 'alert' },
+          { id: 'documentos', label: 'Documentos', icon: 'file' },
+        ],
+      },
+    ],
+  },
+  Editor: {
+    key: 'editor',
+    represents: 'Membro operacional do setor atribuído',
+    home: 'dashboard',
+    layout: 'admin',
+    sectorScoped: true,
+    // Visão operacional: registra e atualiza o próprio trabalho, sem administrar o setor.
+    operational: true,
+    nav: [
+      { group: 'Dashboard', items: [ITEMS.dashboard] },
       {
         group: 'Meu trabalho',
         items: [
-          { id: 'setores', label: 'Meu Setor', icon: 'grid' },
-          { id: 'pendencias', label: 'Pendências', icon: 'check' },
+          SECTOR_WORK,
+          { id: 'pendencias', label: 'Minhas Pendências', icon: 'check' },
           { id: 'ocorrencias', label: 'Ocorrências', icon: 'alert' },
           { id: 'documentos', label: 'Documentos', icon: 'file' },
         ],
@@ -125,7 +149,7 @@ export const ACCESS_PROFILES = {
   },
   Validador: {
     key: 'validator',
-    represents: 'Responsável por ingresso, QR Code e check-in',
+    represents: 'Responsável por credenciais, check-in e presença',
     home: 'presenca',
     layout: 'focus',
     title: '',
@@ -141,7 +165,7 @@ export const ACCESS_PROFILES = {
   },
   Votante: {
     key: 'voter',
-    represents: 'Público e convidados habilitados para votar',
+    represents: 'Pessoa habilitada para a votação pública',
     home: 'votacao',
     layout: 'focus',
     title: '',
@@ -152,7 +176,7 @@ export const ACCESS_PROFILES = {
 export const PROFILE_NAMES = Object.keys(ACCESS_PROFILES)
 
 export function profileConfig(profile) {
-  return ACCESS_PROFILES[profile] || ACCESS_PROFILES.Administrador
+  return ACCESS_PROFILES[profile] || ACCESS_PROFILES.SuperAdmin
 }
 
 const ALLOWED = Object.fromEntries(PROFILE_NAMES.map((name) => {
@@ -163,7 +187,7 @@ const ALLOWED = Object.fromEntries(PROFILE_NAMES.map((name) => {
 }))
 
 export function canAccess(profile, path) {
-  return ALLOWED[profile in ALLOWED ? profile : 'Administrador'].has(String(path || '').split('?')[0])
+  return ALLOWED[profile in ALLOWED ? profile : 'SuperAdmin'].has(String(path || '').split('?')[0])
 }
 
 export function homeFor(profile) {
@@ -191,7 +215,7 @@ export function navState(path, profile) {
   return { item: '', group: '' }
 }
 
-// Editor enxerga apenas os setores atribuídos; demais perfis não têm recorte (null).
+// Gestor de Setor e Editor enxergam apenas os setores atribuídos; demais perfis não têm recorte (null).
 export function sectorScope(session) {
   if (!profileConfig(session?.profile).sectorScoped) return null
   const list = (session?.sectors?.length ? session.sectors : [session?.sector]).filter((name) => SETORES.includes(name))
@@ -201,4 +225,18 @@ export function sectorScope(session) {
 export function inScope(session, sector) {
   const scope = sectorScope(session)
   return !scope || scope.includes(sector)
+}
+
+// Perfil antigo do protótipo ("Administrador") passou a se chamar SuperAdmin.
+export function migrateProfile(profile) {
+  return profile === 'Administrador' ? 'SuperAdmin' : profile
+}
+
+export function isSuperAdmin(session) {
+  return Boolean(profileConfig(session?.profile).globalAdmin)
+}
+
+// Editor: ações operacionais apenas. Gestor, Consultor e SuperAdmin mantêm o controle do que veem.
+export function isOperational(session) {
+  return Boolean(profileConfig(session?.profile).operational)
 }

@@ -30,7 +30,7 @@ const meta = computed(() => (team.value ? teamLabel(team.value) : { challenge: n
 const criteria = computed(() => state.criteria.filter((item) => item.active !== false && item.status !== 'Inativo'))
 const judgeName = computed(() => state.session?.name || 'Jurado')
 // Correção administrativa é ação da organização, não do jurado.
-const canCorrect = computed(() => Boolean(profileConfig(state.session?.profile).adminTools))
+const canCorrect = computed(() => Boolean(profileConfig(state.session?.profile).globalAdmin))
 const existing = computed(() => (team.value ? state.evaluations.find((item) => item.teamId === team.value.id && item.judgeName === judgeName.value) : null))
 
 const initialExisting = team.value

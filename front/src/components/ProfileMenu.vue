@@ -73,7 +73,7 @@ onUnmounted(() => {
         </div>
       </template>
       <div class="menu-list">
-        <template v-if="config.adminTools">
+        <template v-if="config.globalAdmin">
           <button type="button" @click="run(() => go('config'))">Configuração do evento</button>
           <button type="button" @click="run(hack.loadDemo)">Dados demonstrativos</button>
           <button type="button" @click="run(hack.resetAll)">Limpar dados do protótipo</button>

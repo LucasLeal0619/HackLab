@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { isSuperAdmin } from '../access'
 import { companyOf, teamChallenge, teamName } from '../model'
 import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
@@ -38,7 +39,7 @@ const technical = computed(() => rows.value.filter((item) => item.avg != null))
 const totalVotes = computed(() => state.voting.ballots.length)
 const topVotes = computed(() => Math.max(0, ...rows.value.map((item) => item.votes)))
 const leaders = computed(() => rows.value.filter((item) => item.votes === topVotes.value && topVotes.value > 0))
-const admin = computed(() => state.session?.profile === 'Administrador')
+const admin = computed(() => isSuperAdmin(state.session))
 
 function release() {
   update((draft) => { draft.resultsReleased = true })

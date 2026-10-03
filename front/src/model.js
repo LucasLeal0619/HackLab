@@ -120,12 +120,13 @@ export function currentEventDay(state) {
   return days.length ? Math.max(...days) : 1
 }
 
+// Logins de demonstração. As demais experiências são testadas pelo seletor "Meu perfil".
 export const ACCOUNTS = {
   'admin@senac.br': {
     name: 'Usuário Demonstrativo',
-    profile: 'Administrador',
-    sector: 'Gestão Geral',
-    role: 'Líder',
+    profile: 'SuperAdmin',
+    sector: '',
+    role: 'Equipe de TI',
   },
   'consultor@senac.br': {
     name: 'Usuário Consultor',
@@ -139,24 +140,6 @@ export const ACCOUNTS = {
     sector: 'Tecnologia',
     role: 'Apoio',
     sectors: ['Tecnologia'],
-  },
-  'validador@senac.br': {
-    name: 'Usuário Validador',
-    profile: 'Validador',
-    sector: '',
-    role: 'Check-in',
-  },
-  'jurado@senac.br': {
-    name: 'Usuário Jurado',
-    profile: 'Jurado',
-    sector: '',
-    role: 'Jurado',
-  },
-  'votante@senac.br': {
-    name: 'Usuário Votante',
-    profile: 'Votante',
-    sector: '',
-    role: 'Público',
   },
 }
 
@@ -321,48 +304,18 @@ export function normalizeTeams(list) {
   })
 }
 
+// Usuários demonstrativos: ao menos um por perfil de acesso.
 export function seedUsers() {
+  const user = (id, name, profile, extra = {}) => ({ id, name, email: `${id.replace('usr-', 'usuario')}@exemplo.com`, profile, sector: '', sectors: [], role: '', status: 'Ativo', ...extra })
   return [
-    {
-      id: 'usr-1',
-      name: 'Usuário 01',
-      email: 'usuario01@exemplo.com',
-      profile: 'Administrador',
-      sector: 'Gestão Geral',
-      sectors: [...SETORES],
-      role: 'Líder',
-      status: 'Ativo',
-    },
-    {
-      id: 'usr-2',
-      name: 'Usuário 02',
-      email: 'usuario02@exemplo.com',
-      profile: 'Consultor',
-      sector: 'Acompanhamento',
-      sectors: [...SETORES],
-      role: 'Professor / Coordenação',
-      status: 'Ativo',
-    },
-    {
-      id: 'usr-3',
-      name: 'Usuário 03',
-      email: 'usuario03@exemplo.com',
-      profile: 'Editor',
-      sector: 'Tecnologia',
-      sectors: ['Tecnologia'],
-      role: 'Apoio',
-      status: 'Ativo',
-    },
-    {
-      id: 'usr-4',
-      name: 'Usuário 04',
-      email: 'usuario04@exemplo.com',
-      profile: 'Editor',
-      sector: 'Marketing',
-      sectors: ['Marketing'],
-      role: 'Apoio',
-      status: 'Inativo',
-    },
+    user('usr-1', 'Usuário SuperAdmin', 'SuperAdmin', { role: 'Equipe de TI' }),
+    user('usr-2', 'Usuário Consultor', 'Consultor', { sector: 'Acompanhamento', role: 'Professor / Coordenação' }),
+    user('usr-3', 'Editor demonstrativo', 'Editor', { sector: 'Tecnologia', sectors: ['Tecnologia'], role: 'Apoio técnico' }),
+    user('usr-4', 'Editor demonstrativo 02', 'Editor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Registro audiovisual', status: 'Inativo' }),
+    user('usr-5', 'Gestor demonstrativo', 'Gestor de Setor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Líder do setor' }),
+    user('usr-6', 'Validador demonstrativo', 'Validador', { role: 'Check-in' }),
+    user('usr-7', 'Jurado demonstrativo', 'Jurado', { role: 'Representante', companyId: 'emp-1' }),
+    user('usr-8', 'Votante demonstrativo', 'Votante'),
   ]
 }
 
@@ -537,9 +490,9 @@ export function buildDemo(current) {
     companies,
     challenges,
     orgMembers: [
-      { id: 'org-1', name: 'Usuário demonstrativo 01', profile: 'Administrador', sector: 'Recursos Humanos', func: 'Coordenação', status: 'Ativo', email: 'contato@exemplo.com', phone: '' },
+      { id: 'org-1', name: 'Usuário demonstrativo 01', profile: 'SuperAdmin', sector: 'Recursos Humanos', func: 'Coordenação', status: 'Ativo', email: 'contato@exemplo.com', phone: '' },
       { id: 'org-2', name: 'Usuário demonstrativo 02', profile: 'Consultor', sector: 'Finanças', func: 'Financeiro', status: 'Ativo', email: 'fin@exemplo.com', phone: '' },
-      { id: 'org-3', name: 'Usuário demonstrativo 03', profile: 'Editor', sector: 'Marketing', func: 'Comunicação', status: 'Ativo', email: 'mkt@exemplo.com', phone: '' },
+      { id: 'org-3', name: 'Usuário demonstrativo 03', profile: 'Gestor de Setor', sector: 'Marketing', func: 'Líder do setor', status: 'Ativo', email: 'mkt@exemplo.com', phone: '' },
       { id: 'org-4', name: 'Usuário demonstrativo 04', profile: 'Editor', sector: 'Tecnologia', func: 'Suporte', status: 'Ativo', email: 'tec@exemplo.com', phone: '' },
       { id: 'org-5', name: 'Usuário demonstrativo 05', profile: 'Editor', sector: 'Produção', func: 'Operação', status: 'Ativo', email: 'prod@exemplo.com', phone: '' },
     ],
@@ -682,10 +635,10 @@ export function buildDemo(current) {
       },
     ],
     criteria: [
-      { id: 'cri-1', name: 'Critério demonstrativo 01', description: 'Descrição demonstrativa — critério configurado pelo Administrador.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 1, active: true },
-      { id: 'cri-2', name: 'Critério demonstrativo 02', description: 'Descrição demonstrativa — critério configurado pelo Administrador.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 2, active: true },
-      { id: 'cri-3', name: 'Critério demonstrativo 03', description: 'Descrição demonstrativa — critério configurado pelo Administrador.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 3, active: true },
-      { id: 'cri-4', name: 'Critério demonstrativo 04', description: 'Descrição demonstrativa — critério configurado pelo Administrador.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 4, active: true },
+      { id: 'cri-1', name: 'Critério demonstrativo 01', description: 'Descrição demonstrativa — critério configurado pelo SuperAdmin.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 1, active: true },
+      { id: 'cri-2', name: 'Critério demonstrativo 02', description: 'Descrição demonstrativa — critério configurado pelo SuperAdmin.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 2, active: true },
+      { id: 'cri-3', name: 'Critério demonstrativo 03', description: 'Descrição demonstrativa — critério configurado pelo SuperAdmin.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 3, active: true },
+      { id: 'cri-4', name: 'Critério demonstrativo 04', description: 'Descrição demonstrativa — critério configurado pelo SuperAdmin.', type: 'Nota numérica', min: '0', max: '10', weight: '', order: 4, active: true },
     ],
     checkins: [
       { id: 'ck-1', personId: 'alu-1', personName: 'Participante 01', category: 'Participante', turma: 'Breno', day: 1, method: 'QR Code', time: '08:05', responsible: 'Usuário demonstrativo 01', status: 'Presente', note: '' },

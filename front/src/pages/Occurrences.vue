@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { OCC_CATEGORIES, OCC_PRIORITIES, OCC_STATUS, SETORES, occurrenceCategory, occurrenceSector, occurrenceStatus, teamName, uid } from '../model'
-import { inScope, sectorScope } from '../access'
+import { inScope, isOperational, sectorScope } from '../access'
 import { useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
@@ -20,6 +20,7 @@ const props = defineProps({
 const { state, update, flash } = useHack()
 const scope = computed(() => sectorScope(state.session))
 const sectorOptions = computed(() => scope.value || SETORES)
+const operational = computed(() => isOperational(state.session))
 const filters = ref({ query: '', category: '', sector: '', priority: '', status: '', day: '' })
 const form = ref(null)
 const detailId = ref(null)
@@ -191,7 +192,7 @@ function remove() {
             <td>
               <div class="row-actions">
                 <button class="btn ghost small" type="button" @click="detailId = item.id">Ver</button>
-                <button class="btn ghost small" type="button" @click="openEdit(item)">Editar</button>
+                <button v-if="!operational" class="btn ghost small" type="button" @click="openEdit(item)">Editar</button>
               </div>
             </td>
           </tr>
@@ -215,9 +216,12 @@ function remove() {
         <dt>Observação</dt><dd>{{ detail.notes || '—' }}</dd>
       </dl>
       <template #footer>
-        <button class="btn ghost" type="button" @click="removing = detail">Excluir</button>
-        <button class="btn ghost" type="button" @click="openEdit(detail)">Editar</button>
-        <button v-if="detail.statusLabel !== 'Resolvida'" class="btn" type="button" @click="openSolve">Registrar solução</button>
+        <template v-if="!operational">
+          <button class="btn ghost" type="button" @click="removing = detail">Excluir</button>
+          <button class="btn ghost" type="button" @click="openEdit(detail)">Editar</button>
+          <button v-if="detail.statusLabel !== 'Resolvida'" class="btn" type="button" @click="openSolve">Registrar solução</button>
+        </template>
+        <button v-else class="btn ghost" type="button" @click="detailId = null">Fechar</button>
       </template>
     </Drawer>
 
@@ -249,8 +253,8 @@ function remove() {
             <option v-for="team in state.teams" :key="team.id" :value="teamName(team.id)">{{ teamName(team.id) }}</option>
           </select>
         </Field>
-        <Field label="Responsável"><input v-model="form.responsible" class="input" /></Field>
-        <Field label="Status">
+        <Field label="Responsável" :hint="operational ? 'O gestor do setor define o responsável.' : ''"><input v-model="form.responsible" class="input" :disabled="operational" /></Field>
+        <Field v-if="!operational" label="Status">
           <select v-model="form.status" class="input">
             <option v-for="item in OCC_STATUS" :key="item">{{ item }}</option>
           </select>
