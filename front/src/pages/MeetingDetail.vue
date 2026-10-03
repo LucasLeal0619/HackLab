@@ -1,63 +1,16 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
-import { toneFor } from '../components/tone.js'
-
-const PRESENCE = ['Presente', 'Ausente', 'Não informado']
+import { useMeetingDetail } from '@/js/pages/meeting-detail'
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },
   embedded: { type: Boolean, default: false },
 })
-
-const { state, update, flash } = useHack()
-
-const meeting = computed(() => state.meetings.find((item) => item.id === props.params.id) || state.meetings[0])
-const initial = state.meetings.find((item) => item.id === props.params.id) || state.meetings[0]
-const ataForm = ref(initial?.ata
-  ? { ...initial.ata }
-  : {
-    number: String(state.meetings.length).padStart(2, '0'),
-    discussed: '',
-    decisions: '',
-    forwards: '',
-    observations: '',
-  })
-const presence = ref(false)
-const people = computed(() => {
-  const current = meeting.value
-  if (!current) return []
-  return state.users.filter((user) => current.participantIds?.includes(user.id))
-})
-
-function publish() {
-  const currentMeeting = meeting.value
-  if (!currentMeeting) return
-  const snapshot = { ...ataForm.value }
-  update((draft) => {
-    const current = draft.meetings.find((item) => item.id === currentMeeting.id)
-    current.ata = {
-      ...snapshot,
-      status: 'Aguardando manifestações',
-      manifestations: current.ata?.manifestations || [],
-      versions: [{ version: '1.0', date: new Date().toLocaleDateString('pt-BR'), responsible: state.session?.name, change: 'Versão disponibilizada' }],
-    }
-    current.status = 'Aguardando manifestações'
-  })
-  flash('Ata disponibilizada para manifestação.')
-}
-
-function markPresence(userId, option) {
-  update((draft) => {
-    const current = draft.meetings.find((item) => item.id === meeting.value.id)
-    current.presence[userId] = option
-  })
-}
+const { PRESENCE, state, meeting, ataForm, presence, people, publish, markPresence, go, toneFor } = useMeetingDetail(props)
 </script>
 
 <template>

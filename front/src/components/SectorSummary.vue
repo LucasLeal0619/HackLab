@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import { sectorSummaries } from '../model'
-import { go, useHack } from '../store'
+import { sectorSummaries } from '@/js/data/model'
+import { go, useHack } from '@/js/stores/hack'
 import Icon from './Icon.vue'
 
 const { state } = useHack()

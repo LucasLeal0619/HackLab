@@ -1,11 +1,11 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { go, useHack } from '../store'
+import { go, useHack } from '@/js/stores/hack'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
 import Page from '../components/Page.vue'
 import Tabs from '../components/Tabs.vue'
-import { toneFor } from '../components/tone.js'
+import { toneFor } from '@/js/utils/tone'
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },

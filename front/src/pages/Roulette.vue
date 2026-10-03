@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { go, useHack } from '../store'
+import { go, useHack } from '@/js/stores/hack'
 import Empty from '../components/Empty.vue'
 import Page from '../components/Page.vue'
 

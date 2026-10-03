@@ -1,79 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { activeMembers, AVAILABILITY, balanceLabel, isAvailable, memberCounts, pausedMembers, reservedIds, teamName, TURMAS } from '../model'
-import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
 import Tabs from '../components/Tabs.vue'
+import { useTeamBuild } from '@/js/pages/team-build'
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },
 })
-
-function countText(value, singular, plural) {
-  return `${value} ${value === 1 ? singular : plural}`
-}
-
-function availabilityOfSafe(student) {
-  return AVAILABILITY.includes(student.availability) ? student.availability : 'Disponível'
-}
-
-const { state, update, flash } = useHack()
-const query = ref('')
-const turma = ref('Todas')
-const blocked = ref(null)
-const team = computed(() => state.teams.find((item) => String(item.id) === String(props.params.id)) || state.teams[0])
-const taken = computed(() => reservedIds(state.teams, team.value?.id))
-const active = computed(() => (team.value ? activeMembers(team.value, state.students) : []))
-const paused = computed(() => (team.value ? pausedMembers(team.value, state.students) : []))
-const counts = computed(() => (team.value ? memberCounts(team.value, state.students, { onlyAvailable: true }) : {}))
-const pool = computed(() => state.students.filter((student) => {
-  if (!team.value) return false
-  const matches = student.name.toLowerCase().includes(query.value.toLowerCase())
-  const turmaOk = turma.value === 'Todas' || student.turma === turma.value
-  return matches && turmaOk && isAvailable(student) && !team.value.members.includes(student.id) && !taken.value.has(student.id)
-}))
-const tabs = computed(() => [{ id: 'Todas', label: 'Todos' }, ...TURMAS.map((item) => ({ id: item.id, label: item.id }))])
-
-function add(student) {
-  if (!isAvailable(student)) {
-    flash('Somente participantes disponíveis entram na formação.', 'err')
-    return
-  }
-  if (taken.value.has(student.id)) {
-    const owner = state.teams.find((item) => item.id !== team.value.id && item.members.includes(student.id))
-    blocked.value = { student, owner }
-    return
-  }
-  if (team.value.members.includes(student.id)) return
-  update((draft) => {
-    const current = draft.teams.find((item) => item.id === team.value.id)
-    current.members.push(student.id)
-    if (current.status === 'nao-formada') current.status = 'em-montagem'
-  })
-}
-
-function remove(studentId) {
-  update((draft) => {
-    const current = draft.teams.find((item) => item.id === team.value.id)
-    current.members = current.members.filter((item) => item !== studentId)
-  })
-}
-
-function transfer() {
-  if (!blocked.value?.owner) return
-  const student = blocked.value.student
-  update((draft) => {
-    const from = draft.teams.find((item) => item.id === blocked.value.owner.id)
-    const to = draft.teams.find((item) => item.id === team.value.id)
-    if (from) from.members = from.members.filter((item) => item !== student.id)
-    if (to && !to.members.includes(student.id)) to.members.push(student.id)
-  })
-  blocked.value = null
-  flash(`${student.name} foi transferido para a ${teamName(team.value.id)}.`)
-}
+const { countText, availabilityOfSafe, state, query, turma, blocked, team, active, paused, counts, pool, tabs, add, remove, transfer, balanceLabel, teamName, go } = useTeamBuild(props)
 </script>
 
 <template>

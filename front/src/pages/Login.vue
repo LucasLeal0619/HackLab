@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
-import { ACCOUNTS } from '../model'
-import { go, useHack } from '../store'
+import { ACCOUNTS } from '@/js/data/model'
+import { go, useHack } from '@/js/stores/hack'
 import Field from '../components/Field.vue'
 import Icon from '../components/Icon.vue'
 import Logo from '../components/Logo.vue'

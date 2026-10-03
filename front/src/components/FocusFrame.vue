@@ -1,5 +1,5 @@
 <script setup>
-import { go } from '../store'
+import { go } from '@/js/stores/hack'
 import Logo from './Logo.vue'
 
 defineProps({

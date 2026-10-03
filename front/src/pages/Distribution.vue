@@ -1,10 +1,10 @@
 <script setup>
 import { computed } from 'vue'
-import { companyOf, teamName } from '../model'
-import { go, useHack } from '../store'
+import { companyOf, teamName } from '@/js/data/model'
+import { go, useHack } from '@/js/stores/hack'
 import Badge from '../components/Badge.vue'
 import Page from '../components/Page.vue'
-import { toneFor } from '../components/tone.js'
+import { toneFor } from '@/js/utils/tone'
 
 const { state } = useHack()
 const cards = computed(() => state.teams.map((team) => {

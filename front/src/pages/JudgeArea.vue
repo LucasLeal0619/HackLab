@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import { assignedTeams, companyOf, teamChallenge, teamName } from '../model'
-import { useHack, go } from '../store'
+import { assignedTeams, companyOf, teamChallenge, teamName } from '@/js/data/model'
+import { useHack, go } from '@/js/stores/hack'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
 

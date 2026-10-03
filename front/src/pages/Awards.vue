@@ -1,38 +1,11 @@
 <script setup>
-import { ref } from 'vue'
-import { teamName, uid } from '../model'
-import { useHack, go } from '../store'
 import Empty from '../components/Empty.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
+import { useAwards } from '@/js/pages/awards'
 
-const { state, update, flash } = useHack()
-const modal = ref(false)
-const form = ref({ name: '', description: '', team: '', criterion: 'Resultado dos Jurados' })
-const removing = ref(null)
-
-function save() {
-  if (!form.value.name.trim()) return flash('Informe o nome.', 'err')
-  const editing = form.value.id
-  const record = { ...form.value }
-  update((draft) => {
-    const index = editing ? draft.awards.findIndex((item) => item.id === editing) : -1
-    if (index >= 0) draft.awards[index] = { ...draft.awards[index], ...record }
-    else draft.awards.push({ id: uid('pre'), ...record })
-  })
-  modal.value = false
-  flash(editing ? 'Alterações salvas.' : 'Premiação salva.')
-}
-
-function removeAward() {
-  const id = removing.value.id
-  update((draft) => {
-    draft.awards = draft.awards.filter((item) => item.id !== id)
-  })
-  removing.value = null
-  flash('Premiação excluída.')
-}
+const { state, modal, form, removing, save, removeAward, teamName, go } = useAwards()
 </script>
 
 <template>

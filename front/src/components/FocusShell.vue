@@ -1,5 +1,5 @@
 <script setup>
-import { useHack } from '../store'
+import { useHack } from '@/js/stores/hack'
 import Logo from './Logo.vue'
 import ProfileMenu from './ProfileMenu.vue'
 
