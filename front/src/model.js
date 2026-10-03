@@ -105,14 +105,12 @@ export function judgeOf(state) {
   return (state.judges || []).find((item) => (user && item.userId === user.id) || (item.email && item.email.toLowerCase() === session.email)) || null
 }
 
-// Equipes atribuídas ao jurado: lista explícita, senão as equipes dos desafios da empresa dele.
-// Sem registro de jurado (perfil trocado pelo seletor do protótipo), mostra todas as equipes.
+// Equipes que o jurado avalia: somente a atribuição explícita em judge.assignedTeamIds.
+// A empresa do jurado é apenas contexto e não define avaliações. Um jurado pode avaliar
+// várias equipes e uma equipe pode ter vários jurados. Sem atribuição, a lista fica vazia.
 export function assignedTeams(state) {
-  const judge = judgeOf(state)
-  if (!judge) return state.teams
-  if (Array.isArray(judge.teamIds)) return state.teams.filter((team) => judge.teamIds.includes(team.id))
-  if (!judge.companyId) return state.teams
-  return state.teams.filter((team) => (state.challenges || []).some((item) => item.teamId === team.id && item.companyId === judge.companyId))
+  const ids = judgeOf(state)?.assignedTeamIds || []
+  return state.teams.filter((team) => ids.includes(team.id))
 }
 
 // Ocorrências: fatos ocorridos (diferente de pendência, que é algo a fazer).
@@ -752,6 +750,8 @@ export function buildDemo(current) {
       {
         id: 'jur-1',
         userId: 'usr-7',
+        // Atribuição manual demonstrativa (não deriva da empresa).
+        assignedTeamIds: teams.slice(0, 2).map((team) => team.id),
         name: 'Jurado demonstrativo 01',
         companyId: 'emp-1',
         companyName: 'Empresa demonstrativa 01',

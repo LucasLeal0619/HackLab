@@ -30,7 +30,7 @@ function myStatus(teamId) {
       <h1>Minhas avaliações</h1>
       <p>Escolha a equipe para avaliar. Suas notas ficam visíveis apenas para a organização.</p>
     </header>
-    <Empty v-if="teams.length === 0" title="Nenhuma avaliação foi atribuída a você no momento." text="Quando a organização atribuir equipes, elas aparecerão aqui." />
+    <Empty v-if="teams.length === 0" title="Nenhuma avaliação atribuída a você no momento." text="Quando a organização atribuir equipes, elas aparecerão aqui." />
     <ul v-else class="judge-list">
       <li v-for="team in teams" :key="team.id" class="card judge-card">
         <div class="judge-card-main">

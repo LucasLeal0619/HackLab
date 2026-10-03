@@ -53,6 +53,14 @@ function load() {
       users: parsed.users?.length ? withSeedUsers(parsed.users.map(migrateUser)) : base.users,
       invites: parsed.invites || [],
       orgMembers: (parsed.orgMembers || []).map((item) => ({ ...item, profile: migrateProfile(item.profile) })),
+      // Atribuição explícita de equipes: jurados antigos começam sem atribuição,
+      // exceto o jurado demonstrativo, que recebe a atribuição manual do demo.
+      judges: (parsed.judges || []).map((item) => ({
+        ...item,
+        assignedTeamIds: Array.isArray(item.assignedTeamIds)
+          ? item.assignedTeamIds
+          : Array.isArray(item.teamIds) ? item.teamIds : item.id === 'jur-1' && parsed.demo ? (parsed.teams || []).slice(0, 2).map((team) => team.id) : [],
+      })),
       welcome: parsed.welcome ?? (hasWork ? 'existente' : null),
       demo: Boolean(parsed.demo) || /demonstrativ/i.test(JSON.stringify({
         students: parsed.students,
@@ -194,7 +202,7 @@ export function createHackStore() {
           // A mesma pessoa: liga a conta ao jurado já cadastrado ou cria o registro de jurado.
           const judge = draft.judges.find((item) => !item.userId && ((invite.repId && item.repId === invite.repId) || (item.email && item.email.toLowerCase() === normalized)))
           if (judge) judge.userId = user.id
-          else draft.judges.push({ id: uid('jur'), userId: user.id, repId: invite.repId || '', name: user.name, companyId: invite.companyId || '', companyName: invite.companyName || '', cargo: 'Representante', email: normalized, status: 'Ativo' })
+          else draft.judges.push({ id: uid('jur'), userId: user.id, repId: invite.repId || '', name: user.name, companyId: invite.companyId || '', companyName: invite.companyName || '', cargo: 'Representante', email: normalized, status: 'Ativo', assignedTeamIds: [] })
         }
         draft.session = sessionOf(user)
       })
