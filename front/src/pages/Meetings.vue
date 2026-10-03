@@ -6,6 +6,7 @@ import { useHack, go } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
 import Empty from '../components/Empty.vue'
+import FilterPanel from '../components/FilterPanel.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
@@ -441,8 +442,8 @@ function askRemove(kind, id, name) {
       <button class="linkish" type="button" @click="go('reunioes')">Voltar às reuniões</button>
     </p>
 
-    <div v-if="tab !== 'documentos'" class="filters">
-      <input v-model="query" class="input" placeholder="Buscar" aria-label="Buscar" />
+    <FilterPanel v-if="tab !== 'documentos'" :active="[status, sector, priority, prazo].filter(Boolean).length" @clear="status = ''; sector = ''; priority = ''; prazo = ''">
+      <template #search><input v-model="query" class="input" placeholder="Buscar" aria-label="Buscar" /></template>
       <select v-if="tab === 'reunioes'" v-model="status" class="input" aria-label="Status">
         <option value="">Status</option>
         <option>Agendada</option>
@@ -482,7 +483,7 @@ function askRemove(kind, id, name) {
           <option v-for="item in DUE_FILTERS" :key="item">{{ item }}</option>
         </select>
       </template>
-    </div>
+    </FilterPanel>
     <div v-else class="filters mt">
       <input v-model="query" class="input" placeholder="Buscar" aria-label="Buscar documento" />
       <div class="chips">

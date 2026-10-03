@@ -58,7 +58,9 @@ function onPointer(event) {
 }
 
 function onKey(event) {
-  if (panel.value && event.key === 'Escape') panel.value = ''
+  if (event.key !== 'Escape') return
+  if (panel.value) panel.value = ''
+  else if (open.value) open.value = false
 }
 
 onMounted(() => {
@@ -74,8 +76,13 @@ onUnmounted(() => {
 <template>
   <div class="shell">
     <a class="skip" href="#conteudo">Ir para o conteúdo</a>
-    <aside class="sidebar" :class="{ open }">
-      <div class="side-brand"><Logo /></div>
+    <!-- Tablet e celular: a navegação vira drawer, aberto pelo botão ☰ do cabeçalho. -->
+    <div v-if="open" class="nav-backdrop" aria-hidden="true" @click="open = false" />
+    <aside id="navegacao" class="sidebar" :class="{ open }" aria-label="Navegação">
+      <div class="side-brand">
+        <Logo />
+        <button class="icon-btn nav-close" type="button" aria-label="Fechar menu" title="Fechar menu" @click="open = false"><Icon name="x" /></button>
+      </div>
       <div v-for="group in navFor(session?.profile)" :key="group.group" class="nav-group">
         <p class="nav-label">{{ group.group }}</p>
         <template v-for="item in group.items" :key="item.id">
@@ -121,7 +128,8 @@ onUnmounted(() => {
     </aside>
     <div class="workspace">
       <header class="topbar">
-        <button class="icon-btn menu-btn" type="button" aria-label="Abrir menu" title="Abrir menu" @click="open = !open"><Icon name="grid" /></button>
+        <button class="icon-btn menu-btn" type="button" aria-label="Abrir menu" title="Abrir menu" aria-controls="navegacao" :aria-expanded="open" @click="open = !open"><Icon name="menu" /></button>
+        <span class="top-brand"><b>Hack</b><b class="lab">Lab</b></span>
         <div class="top-tools">
           <span v-if="hack.state.demo" class="demo-badge">Modo demonstração</span>
           <div class="tool">

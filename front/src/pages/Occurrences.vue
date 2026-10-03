@@ -6,6 +6,7 @@ import { useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
 import Empty from '../components/Empty.vue'
+import FilterPanel from '../components/FilterPanel.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
@@ -69,6 +70,11 @@ const detail = computed(() => {
   return item ? { ...item, categoryLabel: occurrenceCategory(item), sectorLabel: occurrenceSector(item), statusLabel: occurrenceStatus(item) } : null
 })
 const filtering = computed(() => Object.values(filters.value).some(Boolean))
+const advancedFilters = computed(() => ['category', 'sector', 'priority', 'status', 'day'].filter((key) => filters.value[key]).length)
+
+function clearFilters() {
+  filters.value = { query: '', category: '', sector: '', priority: '', status: '', day: '' }
+}
 
 function openNew() {
   form.value = blank()
@@ -147,8 +153,8 @@ function remove() {
       <button class="btn" type="button" @click="openNew">+ Registrar ocorrência</button>
     </template>
 
-    <div class="filters occ-filters">
-      <input v-model="filters.query" class="input" placeholder="Buscar ocorrência" aria-label="Buscar ocorrência" />
+    <FilterPanel class="occ-filters" :active="advancedFilters" @clear="clearFilters">
+      <template #search><input v-model="filters.query" class="input" placeholder="Buscar ocorrência" aria-label="Buscar ocorrência" /></template>
       <select v-model="filters.category" class="input" aria-label="Categoria">
         <option value="">Categoria</option>
         <option v-for="item in OCC_CATEGORIES" :key="item">{{ item }}</option>
@@ -169,10 +175,10 @@ function remove() {
         <option value="">Dia</option>
         <option v-for="item in [1, 2, 3]" :key="item" :value="String(item)">Dia {{ item }}</option>
       </select>
-    </div>
+    </FilterPanel>
     <p class="attendance-summary">
       <span v-for="[status, total] in counts" :key="status">{{ status }} <b>{{ total }}</b></span>
-      <button v-if="filtering" class="linkish" type="button" @click="filters = { query: '', category: '', sector: '', priority: '', status: '', day: '' }">Limpar filtros</button>
+      <button v-if="filtering" class="linkish" type="button" @click="clearFilters">Limpar filtros</button>
     </p>
 
     <div class="table-wrap">

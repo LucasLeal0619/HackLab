@@ -4,6 +4,7 @@ import { availabilityOf, isAvailable, teamName, TURMAS, uid } from '../model'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Empty from '../components/Empty.vue'
+import FilterPanel from '../components/FilterPanel.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
@@ -142,8 +143,8 @@ function noteFor(student) {
       <button v-else class="btn ghost" type="button" @click="askConfirm = true">Confirmar participantes</button>
       <button class="btn" type="button" @click="openCreate">+ Cadastrar participante</button>
     </template>
-    <div class="filters">
-      <input v-model="query" class="input" placeholder="Buscar participante" aria-label="Buscar participante" />
+    <FilterPanel :active="[turma, statusFilter, equipe].filter((value) => value !== 'Todas').length" @clear="turma = 'Todas'; statusFilter = 'Todas'; equipe = 'Todas'">
+      <template #search><input v-model="query" class="input" placeholder="Buscar participante" aria-label="Buscar participante" /></template>
       <select v-model="turma" class="input" aria-label="Turma">
         <option value="Todas">Turma</option>
         <option v-for="item in TURMAS" :key="item.id" :value="item.id">{{ item.id }}</option>
@@ -159,7 +160,7 @@ function noteFor(student) {
         <option>Sem equipe</option>
         <option v-for="team in state.teams" :key="team.id">{{ teamName(team.id) }}</option>
       </select>
-    </div>
+    </FilterPanel>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Participante</th><th>Turma</th><th>Equipe</th><th>Status</th><th>Ações</th></tr></thead>

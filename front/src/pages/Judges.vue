@@ -98,22 +98,25 @@ function releaseResults() {
   flash('Resultados liberados para divulgação.')
 }
 
+// Jurado: empresa e representante são opcionais (contexto). As equipes avaliadas vêm só de assignedTeamIds.
 function saveJudge() {
-  if (!selectedRep.value) return flash('Selecione um representante já associado à empresa.', 'err')
   const rep = selectedRep.value
   const owner = company.value
-  const exists = state.judges.some((item) => item.id !== form.value.id && (item.repId === rep.id || (item.name === rep.name && item.companyId === owner.id)))
-  if (exists) return flash('Este representante já está definido como jurado.', 'err')
+  const name = (rep?.name || form.value.name || '').trim()
+  if (!name) return flash('Informe o nome do jurado ou selecione um representante.', 'err')
+  const exists = state.judges.some((item) => item.id !== form.value.id && ((rep && item.repId === rep.id) || item.name === name))
+  if (exists) return flash('Esta pessoa já está definida como jurado.', 'err')
   const editing = form.value.id
   const record = {
-    repId: rep.id,
-    name: rep.name,
-    companyId: owner.id,
-    companyName: owner.name,
-    cargo: rep.cargo || '—',
-    email: rep.email || '',
-    phone: rep.phone || '',
+    repId: rep?.id || '',
+    name,
+    companyId: owner?.id || '',
+    companyName: owner?.name || '',
+    cargo: rep?.cargo || form.value.cargo || '',
+    email: rep?.email || form.value.email || '',
+    phone: rep?.phone || '',
     status: form.value.status || 'Ativo',
+    assignedTeamIds: [...(form.value.assignedTeamIds || [])],
   }
   update((draft) => {
     const index = editing ? draft.judges.findIndex((item) => item.id === editing) : -1
@@ -122,6 +125,16 @@ function saveJudge() {
   })
   modal.value = null
   flash(editing ? 'Alterações salvas.' : 'Jurado adicionado.')
+}
+
+function toggleAssigned(teamId) {
+  const list = form.value.assignedTeamIds || []
+  form.value.assignedTeamIds = list.includes(teamId) ? list.filter((id) => id !== teamId) : [...list, teamId]
+}
+
+function assignedLabel(judge) {
+  const ids = judge.assignedTeamIds || []
+  return ids.length ? ids.map((id) => teamName(id)).join(', ') : 'Nenhuma'
 }
 
 function saveCriterion() {
@@ -199,7 +212,7 @@ async function copyInvite(code) {
 }
 
 function openJudge() {
-  form.value = { companyId: state.companies[0]?.id || '', repId: '', status: 'Ativo' }
+  form.value = { companyId: '', repId: '', name: '', email: '', cargo: '', status: 'Ativo', assignedTeamIds: [] }
   modal.value = 'juiz'
 }
 
@@ -212,7 +225,7 @@ function openCriterion(item) {
 function editJudge(judge) {
   const owner = state.companies.find((item) => item.id === judge.companyId)
   const rep = owner?.reps?.find((item) => item.id === judge.repId) || owner?.reps?.find((item) => item.name === judge.name)
-  form.value = { id: judge.id, companyId: judge.companyId, repId: rep?.id || '', status: judge.status || 'Ativo' }
+  form.value = { id: judge.id, companyId: judge.companyId || '', repId: rep?.id || '', name: judge.name, email: judge.email || '', cargo: judge.cargo || '', status: judge.status || 'Ativo', assignedTeamIds: [...(judge.assignedTeamIds || [])] }
   modal.value = 'juiz'
 }
 
@@ -262,12 +275,13 @@ function removeRecord() {
       <template v-if="showJudgesBlock">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Jurado</th><th>Empresa</th><th>Avaliações</th><th>Status</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Jurado</th><th>Empresa</th><th>Equipes atribuídas</th><th>Avaliações</th><th>Status</th><th>Ações</th></tr></thead>
             <tbody>
-              <tr v-if="state.judges.length === 0"><td colspan="5"><Empty title="Nenhum jurado cadastrado." text="O jurado reutiliza um representante já associado à empresa." /></td></tr>
+              <tr v-if="state.judges.length === 0"><td colspan="6"><Empty title="Nenhum jurado cadastrado." text="Adicione um jurado ou gere um convite para o cadastro público." /></td></tr>
               <tr v-for="judge in state.judges" :key="judge.id">
                 <td>{{ judge.name }}</td>
-                <td>{{ judge.companyName }}</td>
+                <td>{{ judge.companyName || 'Sem empresa' }}</td>
+                <td>{{ assignedLabel(judge) }}</td>
                 <td>{{ dash(judgeDone(judge)) }}</td>
                 <td><Badge :tone="toneFor(judge.status)">{{ judge.status }}</Badge></td>
                 <td>
@@ -405,29 +419,41 @@ function removeRecord() {
       </div>
     </section>
 
-    <Modal v-if="modal === 'juiz'" :title="form.id ? 'Editar jurado' : 'Adicionar jurado'" subtitle="Empresa, representante e, então, a função de jurado. O cadastro do representante não é duplicado." @close="modal = null">
-      <Empty v-if="state.companies.length === 0" title="Nenhuma empresa cadastrada." text="Associe um representante à empresa antes de definir um jurado." />
-      <template v-else>
-        <Field label="Empresa" required>
+    <Modal v-if="modal === 'juiz'" :title="form.id ? 'Editar jurado' : 'Adicionar jurado'" subtitle="A empresa é opcional e só dá contexto. As equipes avaliadas são as atribuídas abaixo." wide @close="modal = null">
+      <div class="form-grid">
+        <Field label="Empresa (opcional)">
           <select v-model="form.companyId" class="input" @change="form.repId = ''">
+            <option value="">Sem empresa</option>
             <option v-for="item in state.companies" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
         </Field>
-        <Field label="Representante" required>
+        <Field v-if="form.companyId" label="Representante (opcional)" hint="Usa os dados já cadastrados do representante.">
           <select v-model="form.repId" class="input">
-            <option value="">Selecione</option>
+            <option value="">Não é representante</option>
             <option v-for="rep in reps" :key="rep.id || rep.name" :value="rep.id">{{ rep.name }}</option>
           </select>
         </Field>
-        <p v-if="reps.length === 0" class="stat-hint">Nenhum representante associado a esta empresa.</p>
-        <Field label="Cargo / Função"><input class="input" :value="selectedRep?.cargo || ''" readonly placeholder="—" /></Field>
+        <template v-if="!selectedRep">
+          <Field label="Nome" required><input v-model="form.name" class="input" /></Field>
+          <Field label="E-mail"><input v-model="form.email" class="input" type="email" /></Field>
+          <Field label="Cargo / Função"><input v-model="form.cargo" class="input" /></Field>
+        </template>
+        <Field v-else label="Cargo / Função"><input class="input" :value="selectedRep.cargo || ''" readonly placeholder="—" /></Field>
         <Field label="Status">
           <select v-model="form.status" class="input">
             <option>Ativo</option>
             <option>Inativo</option>
           </select>
         </Field>
-      </template>
+        <div class="field span-2">
+          <span>Equipes atribuídas</span>
+          <small class="stat-hint">O jurado avalia somente estas equipes. Uma equipe pode ter vários jurados.</small>
+          <p v-if="state.teams.length === 0" class="stat-hint">Nenhuma equipe formada ainda.</p>
+          <div v-else class="chips">
+            <button v-for="team in state.teams" :key="team.id" type="button" class="chip" :class="{ on: (form.assignedTeamIds || []).includes(team.id) }" :aria-pressed="(form.assignedTeamIds || []).includes(team.id)" @click="toggleAssigned(team.id)">{{ teamName(team.id) }}</button>
+          </div>
+        </div>
+      </div>
       <template #footer>
         <button class="btn ghost" type="button" @click="modal = null">Cancelar</button>
         <button class="btn" type="button" @click="saveJudge">{{ form.id ? 'Salvar alterações' : 'Salvar' }}</button>
@@ -435,7 +461,7 @@ function removeRecord() {
     </Modal>
 
     <Modal v-if="inviteForm" title="Convidar Jurado" subtitle="Gera um código para o cadastro público. Nenhum e-mail é enviado." @close="inviteForm = null">
-      <Field label="Empresa">
+      <Field label="Empresa (opcional)">
         <select v-model="inviteForm.companyId" class="input" @change="inviteForm.repId = ''">
           <option value="">Sem empresa</option>
           <option v-for="item in state.companies" :key="item.id" :value="item.id">{{ item.name }}</option>
@@ -514,12 +540,13 @@ function removeRecord() {
       </template>
     </Modal>
 
-    <Drawer v-if="judgeDetail" :title="judgeDetail.name" :subtitle="judgeDetail.companyName" @close="judgeDetail = null">
+    <Drawer v-if="judgeDetail" :title="judgeDetail.name" :subtitle="judgeDetail.companyName || 'Sem empresa vinculada'" @close="judgeDetail = null">
+      <p><b>Equipes atribuídas</b><br />{{ assignedLabel(judgeDetail) }}</p>
       <p><b>Cargo / Função</b><br />{{ judgeDetail.cargo || '—' }}</p>
       <p><b>Status</b><br />{{ judgeDetail.status }}</p>
       <p><b>E-mail</b><br />{{ judgeDetail.email || '—' }}</p>
       <p><b>Telefone</b><br />{{ judgeDetail.phone || '—' }}</p>
-      <p class="stat-hint">Estes dados vêm do representante da empresa e ficam fora da tabela principal.</p>
+      <p class="stat-hint">A empresa é apenas contexto: ela não define as equipes avaliadas.</p>
     </Drawer>
   </Page>
 </template>

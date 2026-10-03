@@ -9,6 +9,7 @@ import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
 import Empty from '../components/Empty.vue'
+import FilterPanel from '../components/FilterPanel.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
@@ -239,7 +240,8 @@ function setStatus(credential, value) {
 
     <div class="attendance-bar">
       <Tabs v-if="tab === 'presenca'" :tabs="DAY_TABS" :model-value="String(day)" @update:model-value="(value) => link({ dia: value })" />
-      <input v-model="query" class="input attendance-search" placeholder="Buscar por nome ou código da credencial" aria-label="Buscar por nome ou código da credencial" />
+      <FilterPanel class="attendance-filters" :active="[category, tab === 'credenciais' ? status : '', tab === 'credenciais' ? authorized : ''].filter(Boolean).length" @clear="category = ''; status = ''; authorized = ''">
+      <template #search><input v-model="query" class="input attendance-search" placeholder="Buscar por nome ou código da credencial" aria-label="Buscar por nome ou código da credencial" /></template>
       <select v-model="category" class="input attendance-filter" aria-label="Categoria">
         <option value="">Todas as categorias</option>
         <option v-for="item in CREDENTIAL_CATEGORIES" :key="item">{{ item }}</option>
@@ -253,8 +255,9 @@ function setStatus(credential, value) {
           <option value="">Qualquer dia</option>
           <option v-for="item in EVENT_DAYS" :key="item" :value="String(item)">Autorizado no Dia {{ item }}</option>
         </select>
-        <button v-if="manage" class="btn" type="button" @click="openNew">+ Nova credencial</button>
       </template>
+      </FilterPanel>
+      <button v-if="manage && tab === 'credenciais'" class="btn" type="button" @click="openNew">+ Nova credencial</button>
     </div>
 
     <template v-if="!(state.credentials || []).length">
