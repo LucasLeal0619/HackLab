@@ -14,6 +14,7 @@
 @import './components/filters.css';
 @import './components/overlays.css';
 @import './components/profile-menu.css';
+@import './components/demand-activity.css';
 @import './global/accessibility.css';
 @import './pages/login.css';
 @import './pages/signup.css';
@@ -27,6 +28,7 @@
 @import './pages/vote.css';
 @import './pages/results.css';
 @import './pages/reports.css';
+@import './pages/audit.css';
 @import './responsive/grids.css';
 @import './responsive/small-screens.css';
 @import './responsive/navigation.css';

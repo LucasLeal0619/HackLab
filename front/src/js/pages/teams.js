@@ -1,5 +1,6 @@
 // Lógica do componente Teams.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
+import { useAudit } from '@/js/audit/audit-logger'
 import { activeMembers, balanceLabel, isAvailable, memberCounts, pausedMembers, suggestTeams, teamName, TURMAS } from '@/js/data/model'
 import { go, useHack } from '@/js/stores/hack'
 
@@ -9,6 +10,7 @@ export function useTeams() {
   }
 
   const { state, update, flash } = useHack()
+  const audit = useAudit()
   const open = ref(false)
   const replace = ref(false)
   const available = computed(() => state.students.filter(isAvailable))
@@ -21,7 +23,10 @@ export function useTeams() {
       flash('Nenhum participante disponível para formar equipes.', 'err')
       return
     }
-    update((draft) => { draft.teams = next })
+    update((draft) => {
+      draft.teams = next
+      audit.record(draft, { action: 'team.generated', label: 'Gerou equipes', module: 'teams', entityType: 'Equipes', entityLabel: `${next.length} equipes`, description: `Formação automática de ${next.length} equipes com tamanho de referência ${size.value}.` })
+    })
     open.value = false
     replace.value = false
     flash('Nova sugestão criada. A divisão das turmas mudou e todo mundo disponível entrou.')
@@ -42,6 +47,7 @@ export function useTeams() {
     const id = (numbers.length ? Math.max(...numbers) : 0) + 1
     update((draft) => {
       draft.teams.push({ id, status: 'em-montagem', members: [], solution: '' })
+      audit.record(draft, { action: 'team.created', label: 'Criou equipe', module: 'teams', entityType: 'Equipe', entityId: String(id), entityLabel: teamName(id), description: `Criou a ${teamName(id)} para montagem manual.` })
     })
     open.value = false
     go(`montar?id=${id}`)

@@ -20,6 +20,7 @@ import Distribution from './pages/Distribution.vue'
 import Manifest from './pages/Manifest.vue'
 import MeetingDetail from './pages/MeetingDetail.vue'
 import Attendance from './pages/Attendance.vue'
+import Audit from './pages/Audit.vue'
 import Occurrences from './pages/Occurrences.vue'
 import Awards from './pages/Awards.vue'
 import Evaluate from './pages/Evaluate.vue'
@@ -55,7 +56,7 @@ const { hack, path, params, experience, focused, bare, page } = useApp()
     <Distribution v-else-if="page === 'distribuicao'" />
     <Sectors v-else-if="page === 'setores'" :params="params" />
     <Meetings v-else-if="page === 'reunioes'" :params="params" />
-    <Meetings v-else-if="page === 'pendencias'" :params="{ aba: 'pendencias' }" />
+    <Meetings v-else-if="page === 'pendencias'" :params="{ ...params, aba: 'pendencias' }" />
     <Meetings v-else-if="page === 'documentos'" :params="{ aba: 'documentos' }" />
     <MeetingDetail v-else-if="page === 'reuniao'" :params="params" />
     <Manifest v-else-if="page === 'manifestacao'" :params="params" />
@@ -67,6 +68,7 @@ const { hack, path, params, experience, focused, bare, page } = useApp()
     <Judges v-else-if="page === 'votacao-gestao'" part="votacao" :params="params" />
     <Judges v-else-if="page === 'resultados'" part="resultados" :params="params" />
     <Config v-else-if="page === 'usuarios'" section="usuarios" />
+    <Audit v-else-if="page === 'auditoria'" />
     <Awards v-else-if="page === 'premiacao'" />
     <Results v-else-if="page === 'painel'" />
     <Dashboard v-else />

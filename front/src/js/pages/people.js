@@ -1,11 +1,13 @@
 // Lógica do componente People.vue (o template fica no .vue).
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useAudit } from '@/js/audit/audit-logger'
 import { availabilityOf, isAvailable, teamName, TURMAS, uid } from '@/js/data/model'
 import { go, useHack } from '@/js/stores/hack'
 
 export function usePeople() {
   const blank = { name: '', turma: '', email: '', matricula: '', note: '', availability: 'Disponível' }
   const { state, update, flash } = useHack()
+  const audit = useAudit()
   const query = ref('')
   const turma = ref('Todas')
   const statusFilter = ref('Todas')
@@ -63,9 +65,16 @@ export function usePeople() {
     update((draft) => {
       if (form.value.id) {
         const index = draft.students.findIndex((item) => item.id === form.value.id)
-        if (index >= 0) draft.students[index] = { ...draft.students[index], ...form.value, name: form.value.name.trim(), availability: form.value.availability || 'Disponível' }
+        if (index >= 0) {
+          const before = draft.students[index]
+          const after = { ...before, ...form.value, name: form.value.name.trim(), availability: form.value.availability || 'Disponível' }
+          draft.students[index] = after
+          audit.record(draft, { action: 'participant.updated', label: 'Editou participante', module: 'participants', entityType: 'Participante', entityId: after.id, entityLabel: after.name, description: `Participante ${after.name}.`, changes: [{ field: 'Nome', before: before.name, after: after.name }, { field: 'Turma', before: before.turma, after: after.turma }, { field: 'Situação', before: before.availability || 'Disponível', after: after.availability }] })
+        }
       } else {
-        draft.students.push({ ...form.value, id: uid('alu'), name: form.value.name.trim(), availability: form.value.availability || 'Disponível' })
+        const created = { ...form.value, id: uid('alu'), name: form.value.name.trim(), availability: form.value.availability || 'Disponível' }
+        draft.students.push(created)
+        audit.record(draft, { action: 'participant.created', label: 'Cadastrou participante', module: 'participants', entityType: 'Participante', entityId: created.id, entityLabel: created.name, description: `Cadastrou ${created.name} (turma ${created.turma}).` })
       }
     })
     const previous = form.value.id ? state.students.find((student) => student.id === form.value.id) : null
@@ -99,7 +108,9 @@ export function usePeople() {
     const leaving = isAvailable(student) && availability !== 'Disponível' && teamOf(student.id)
     update((draft) => {
       const current = draft.students.find((item) => item.id === student.id)
-      if (current) current.availability = availability
+      if (!current) return
+      audit.record(draft, { action: 'participant.status', label: 'Alterou situação do participante', module: 'participants', entityType: 'Participante', entityId: current.id, entityLabel: current.name, description: `Participante ${current.name}.`, changes: [{ field: 'Situação', before: current.availability || 'Disponível', after: availability }] })
+      current.availability = availability
     })
     menu.value = ''
     flash(leaving

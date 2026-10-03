@@ -1,7 +1,7 @@
 // Lógica do componente Dashboard.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
 import { canAccess, inScope, isOperational, sectorScope } from '@/js/config/access'
-import { currentEventDay, isAvailable, journeySteps, occurrenceSector, occurrenceStatus, plural, presenceOf } from '@/js/data/model'
+import { currentEventDay, demandVisible, isAvailable, journeySteps, occurrenceSector, occurrenceStatus, plural, presenceOf } from '@/js/data/model'
 import { go, useHack } from '@/js/stores/hack'
 import { toneFor } from '@/js/utils/tone'
 
@@ -133,17 +133,21 @@ export function useDashboard() {
     if (blockedCredentials.value) items.push({ tone: 'warn', text: plural(blockedCredentials.value, 'credencial bloqueada', 'credenciais bloqueadas'), to: 'presenca?aba=credenciais' })
     if (withoutTeam.value) items.push({ tone: 'warn', text: `${plural(withoutTeam.value, 'participante', 'participantes')} sem equipe`, to: 'equipes' })
     if (state.teams.length && state.evaluations.length === 0) items.push({ tone: 'info', text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
+    // Administrador: atividade do dia registrada na Auditoria (sem virar card próprio).
+    const today = new Date().toDateString()
+    const logged = (state.audit || []).filter((item) => item.timestamp && new Date(item.timestamp).toDateString() === today).length
+    if (logged) items.push({ tone: 'info', text: `${plural(logged, 'ação registrada', 'ações registradas')} hoje`, to: 'auditoria' })
     return items.filter((item) => allowed(item.to)).sort((x, y) => RANK[x.tone] - RANK[y.tone])
   })
-  // Gestor de Setor e Editor: tudo recortado pelos setores atribuídos.
+  // Gestor e Editor: tudo recortado pelos setores atribuídos.
   const sectors = computed(() => sectorScope(state.session) || [])
   const scoped = computed(() => sectors.value.length > 0)
   const operational = computed(() => isOperational(state.session))
   const myName = computed(() => state.session?.name || '')
   const URGENT = ['Alta', 'Urgente']
-  const sectorTasks = computed(() => state.tasks.filter((task) => inScope(state.session, task.sector) && task.status !== 'Concluído'))
+  const sectorTasks = computed(() => state.tasks.filter((task) => demandVisible(sectorScope(state.session), task, 'task') && task.status !== 'Concluído'))
   const myTasks = computed(() => sectorTasks.value.filter((task) => task.responsible === myName.value))
-  const sectorOcc = computed(() => openOccList.value.filter((item) => inScope(state.session, occurrenceSector(item))))
+  const sectorOcc = computed(() => openOccList.value.filter((item) => demandVisible(sectorScope(state.session), item, 'occurrence')))
   const sectorDocs = computed(() => state.documents.filter((item) => inScope(state.session, item.sector)))
   const sectorMembers = computed(() => (state.orgMembers || []).filter((item) => inScope(state.session, item.sector)))
   const sectorLink = (name) => `setores?setor=${encodeURIComponent(name)}`
@@ -164,7 +168,7 @@ export function useDashboard() {
   ].slice(0, 5))
   const recent = computed(() => [
     ...sectorDocs.value.slice(0, 3).map((item) => ({ id: item.id, kind: 'Documento', title: item.name, when: item.date, to: 'documentos' })),
-    ...state.occurrences.filter((item) => inScope(state.session, occurrenceSector(item))).slice(0, 3).map((item) => ({ id: item.id, kind: 'Ocorrência', title: item.title, when: item.at || (item.day ? `Dia ${item.day}` : ''), to: 'ocorrencias' })),
+    ...state.occurrences.filter((item) => demandVisible(sectorScope(state.session), item, 'occurrence')).slice(0, 3).map((item) => ({ id: item.id, kind: 'Ocorrência', title: item.title, when: item.at || (item.day ? `Dia ${item.day}` : ''), to: 'ocorrencias' })),
   ].slice(0, 5))
 
   const STEP_LABELS = ['Configurar evento', 'Participantes', 'Equipes', 'Empresas e desafios', 'Preparação operacional', 'Realizar evento', 'Encerramento']

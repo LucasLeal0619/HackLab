@@ -1,6 +1,7 @@
 // Lógica do componente Attendance.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
-import { isSuperAdmin } from '@/js/config/access'
+import { useAudit } from '@/js/audit/audit-logger'
+import { isAdmin } from '@/js/config/access'
 import {
   CREDENTIAL_CATEGORIES, CREDENTIAL_STATUS, EVENT_DAYS, checkCredential, credentialOf, credentialPeople,
   findCredential, personOf, presenceOf, suggestedDays, uid,
@@ -14,8 +15,9 @@ export function useAttendance(props) {
 
 
   const { state, update, flash } = useHack()
-  // Só o SuperAdmin gerencia credenciais; Validador e Consultor operam validação e presença.
-  const manage = computed(() => isSuperAdmin(state.session))
+  const audit = useAudit()
+  // Só o Administrador gerencia credenciais; Validador e Consultor operam validação e presença.
+  const manage = computed(() => isAdmin(state.session))
   const validator = computed(() => state.session?.profile === 'Validador')
   const day = computed(() => (EVENT_DAYS.includes(Number(props.params.dia)) ? Number(props.params.dia) : 1))
   const tab = computed(() => (props.params.aba === 'credenciais' && !validator.value ? 'credenciais' : 'presenca'))
@@ -110,6 +112,7 @@ export function useAttendance(props) {
         status: 'Presente',
         note: extra.note || '',
       })
+      audit.record(draft, { action: method === 'Manual' ? 'presence.manual' : 'presence.validated', label: method === 'Manual' ? 'Registrou presença manualmente' : 'Validou presença', module: 'presence', entityType: 'Credencial', entityId: credential.id, entityLabel: credential.code, description: `${person?.name || 'Pessoa'} · Dia ${targetDay} · ${method}${extra.note && method === 'Manual' ? ` · ${extra.note}` : ''}.` })
     })
   }
 
@@ -198,7 +201,10 @@ export function useAttendance(props) {
     const fields = { category: current.category, days: [...current.days].sort(), status: current.status, note: current.note }
     update((draft) => {
       if (current.id) {
-        Object.assign(draft.credentials.find((item) => item.id === current.id), fields)
+        const credential = draft.credentials.find((item) => item.id === current.id)
+        const days = (list) => list.map((day) => `Dia ${day}`).join(', ')
+        audit.record(draft, { action: 'credential.updated', label: 'Editou credencial', module: 'credentials', entityType: 'Credencial', entityId: credential.id, entityLabel: credential.code, description: `Credencial ${credential.code}.`, changes: [{ field: 'Categoria', before: credential.category, after: fields.category }, { field: 'Dias autorizados', before: days(credential.days), after: days(fields.days) }, { field: 'Status', before: credential.status, after: fields.status }] })
+        Object.assign(credential, fields)
         return
       }
       let personId = current.personId
@@ -207,14 +213,22 @@ export function useAttendance(props) {
         draft.guests.push({ id: personId, name: current.name.trim(), email: current.email.trim(), category: current.category })
       }
       const top = draft.credentials.reduce((max, item) => Math.max(max, Number(String(item.code).replace(/\D/g, '')) || 0), 0)
-      draft.credentials.push({ id: uid('cred'), code: `HL-${String(top + 1).padStart(6, '0')}`, personId, ...fields, createdAt: new Date().toLocaleDateString('pt-BR') })
+      const code = `HL-${String(top + 1).padStart(6, '0')}`
+      draft.credentials.push({ id: uid('cred'), code, personId, ...fields, createdAt: new Date().toLocaleDateString('pt-BR') })
+      audit.record(draft, { action: 'credential.created', label: 'Criou credencial', module: 'credentials', entityType: 'Credencial', entityLabel: code, description: `Credencial ${fields.category} para ${current.mode === 'externa' ? current.name.trim() : personOf(draft, personId)?.name || 'pessoa'} (${fields.days.map((day) => `Dia ${day}`).join(', ')}).` })
     })
     flash(current.id ? 'Credencial atualizada.' : 'Credencial criada.')
     form.value = null
   }
 
   function setStatus(credential, value) {
-    update((draft) => { draft.credentials.find((item) => item.id === credential.id).status = value })
+    const LABELS = { Bloqueada: 'Bloqueou credencial', Cancelada: 'Cancelou credencial', Ativa: 'Reativou credencial' }
+    update((draft) => {
+      const found = draft.credentials.find((item) => item.id === credential.id)
+      const before = found.status
+      found.status = value
+      audit.record(draft, { action: `credential.${value === 'Ativa' ? 'reactivated' : value === 'Bloqueada' ? 'blocked' : 'cancelled'}`, label: LABELS[value], module: 'credentials', entityType: 'Credencial', entityId: found.id, entityLabel: found.code, description: `Credencial ${found.code} de ${personOf(draft, found.personId)?.name || 'pessoa'}.`, changes: [{ field: 'Status', before, after: value }] })
+    })
     flash(`Credencial ${value.toLowerCase()}.`)
   }
 

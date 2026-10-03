@@ -446,8 +446,8 @@ const { state, COPY, SUB, EQUIP_STATUS, ITEM_STATUS, CHANNELS, EQUIP_CATEGORIES,
         <Field label="Nome" required><input v-model="form.name" class="input" /></Field>
         <Field label="Perfil">
           <select v-model="form.profile" class="input">
-            <option>SuperAdmin</option>
-            <option>Gestor de Setor</option>
+            <option>Administrador</option>
+            <option>Gestor</option>
             <option>Editor</option>
             <option>Consultor</option>
           </select>

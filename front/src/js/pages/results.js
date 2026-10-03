@@ -1,11 +1,13 @@
 // Lógica do componente Results.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
-import { isSuperAdmin } from '@/js/config/access'
+import { useAudit } from '@/js/audit/audit-logger'
+import { isAdmin } from '@/js/config/access'
 import { companyOf, teamChallenge, teamName } from '@/js/data/model'
 import { useHack, go } from '@/js/stores/hack'
 
 export function useResults() {
   const { state, update, flash } = useHack()
+  const audit = useAudit()
   const ask = ref(false)
 
   function teamLabel(team) {
@@ -36,10 +38,13 @@ export function useResults() {
   const totalVotes = computed(() => state.voting.ballots.length)
   const topVotes = computed(() => Math.max(0, ...rows.value.map((item) => item.votes)))
   const leaders = computed(() => rows.value.filter((item) => item.votes === topVotes.value && topVotes.value > 0))
-  const admin = computed(() => isSuperAdmin(state.session))
+  const admin = computed(() => isAdmin(state.session))
 
   function release() {
-    update((draft) => { draft.resultsReleased = true })
+    update((draft) => {
+      draft.resultsReleased = true
+      audit.record(draft, { action: 'results.published', label: 'Publicou resultados', module: 'results', entityType: 'Resultados', description: 'Resultados liberados no painel.' })
+    })
     ask.value = false
     flash('Resultados liberados.')
   }

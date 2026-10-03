@@ -1,6 +1,7 @@
 import { inject, reactive, ref, toRaw, watch } from 'vue'
+import { appendAudit } from '@/js/audit/audit-logger'
 import { homeFor, migrateProfile, profileConfig } from '@/js/config/access'
-import { ACCOUNTS, KEY, PUBLIC_CATEGORY, SETORES, buildDemo, defaultState, findInvite, isExternalProfile, normalizeTeams, seedDemoCredentials, seedUsers, syncCredentials, uid } from '@/js/data/model'
+import { ACCOUNTS, KEY, PUBLIC_CATEGORY, SETORES, buildDemo, defaultState, findInvite, isExternalProfile, normalizeTeams, normalizeDemands, seedDemoCredentials, seedUsers, syncCredentials, uid } from '@/js/data/model'
 
 const STORE = 'hacklab'
 
@@ -48,7 +49,7 @@ function load() {
       students: (parsed.students || []).map((student) => ({ ...student, availability: student.availability || 'Disponível' })),
       participantsConfirmed: Boolean(parsed.participantsConfirmed),
       teamSize: Number(parsed.teamSize) || 6,
-      // Estado salvo antes da Spec 17: "Administrador" vira SuperAdmin e os novos perfis ganham usuários demonstrativos.
+      // Estado salvo de versões anteriores: nomes antigos de perfil são migrados e os novos perfis ganham usuários demonstrativos.
       session: parsed.session ? { ...parsed.session, profile: migrateProfile(parsed.session.profile) } : null,
       users: parsed.users?.length ? withSeedUsers(parsed.users.map(migrateUser)) : base.users,
       invites: parsed.invites || [],
@@ -69,7 +70,7 @@ function load() {
         meetings: parsed.meetings,
       })),
     }
-    return syncCredentials(loaded)
+    return normalizeDemands(syncCredentials(loaded))
   } catch {
     return syncCredentials(defaultState())
   }
@@ -133,6 +134,7 @@ export function createHackStore() {
       fn(draft)
       // Participantes, contas e cadastros públicos novos recebem credencial automaticamente.
       syncCredentials(draft)
+      normalizeDemands(draft)
       replaceState(state, draft)
     },
     flash(text, type = 'ok') {
@@ -157,7 +159,7 @@ export function createHackStore() {
           : {
             email: normalized,
             name: 'Usuário Demonstrativo',
-            profile: 'SuperAdmin',
+            profile: 'Administrador',
             sector: '',
             role: 'Equipe de TI',
           }
@@ -205,6 +207,7 @@ export function createHackStore() {
           else draft.judges.push({ id: uid('jur'), userId: user.id, repId: invite.repId || '', name: user.name, companyId: invite.companyId || '', companyName: invite.companyName || '', cargo: 'Representante', email: normalized, status: 'Ativo', assignedTeamIds: [] })
         }
         draft.session = sessionOf(user)
+        appendAudit(draft, draft.session, { action: 'user.public-signup', label: `Cadastro público de ${kind}`, module: 'users', entityType: 'Usuário', entityId: user.id, entityLabel: user.email, description: `${user.name} criou o próprio cadastro como ${kind}${invite ? ` usando o convite ${invite.code}` : ''}.` })
       })
       store.flash(kind === 'Jurado' ? 'Cadastro realizado. Seu acesso de Jurado está ativo.' : 'Cadastro realizado. Você já pode acessar a votação quando ela estiver disponível.')
       go(homeFor(kind))
@@ -245,7 +248,7 @@ export function createHackStore() {
       store.flash('Acessibilidade restaurada ao padrão.')
     },
     loadDemo() {
-      replaceState(state, seedDemoCredentials(buildDemo(structuredClone(toRaw(state)))))
+      replaceState(state, normalizeDemands(seedDemoCredentials(buildDemo(structuredClone(toRaw(state))))))
       store.flash('Dados demonstrativos carregados neste navegador.')
     },
     resetAll() {

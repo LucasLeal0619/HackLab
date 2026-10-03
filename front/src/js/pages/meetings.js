@@ -1,7 +1,8 @@
 // Lógica do componente Meetings.vue (o template fica no .vue).
-import { computed, ref } from 'vue'
-import { SETORES, uid } from '@/js/data/model'
-import { inScope, isOperational, sectorScope } from '@/js/config/access'
+import { computed, ref, watch } from 'vue'
+import { SETORES, demandVisible, historyEntry, nextRef, trackDemandEdit, uid } from '@/js/data/model'
+import { actorFrom, useAudit } from '@/js/audit/audit-logger'
+import { canRouteDemands, inScope, isOperational, sectorScope } from '@/js/config/access'
 import { useHack, go } from '@/js/stores/hack'
 import { toneFor } from '@/js/utils/tone'
 
@@ -88,13 +89,19 @@ export function useMeetings(props) {
 
   // Editor vê pendências e documentos apenas dos setores atribuídos.
   const sectorOptions = computed(() => sectorScope(state.session) || SETORES)
+  const audit = useAudit()
+  // Pendências podem ter responsável em outro setor (Administrador e Gestor atribuem e envolvem setores).
+  const canRoute = computed(() => canRouteDemands(state.session))
+  const taskSectorOptions = computed(() => (canRoute.value || !sectorScope(state.session) ? SETORES : sectorScope(state.session)))
+  const globalView = computed(() => !sectorScope(state.session))
   // Editor (visão operacional): cria e atualiza só as próprias pendências; não exclui nem reatribui.
   const operational = computed(() => isOperational(state.session))
   const myName = computed(() => state.session?.name || '')
   function canEditTask(item) {
     return !operational.value || item.responsible === myName.value
   }
-  const scopedTasks = computed(() => state.tasks.filter((item) => inScope(state.session, item.sector)))
+  // Visíveis: pendências em que o setor é origem, responsável ou envolvido.
+  const scopedTasks = computed(() => state.tasks.filter((item) => demandVisible(sectorScope(state.session), item, 'task')))
   const scopedDocs = computed(() => state.documents.filter((item) => inScope(state.session, item.sector)))
   const meetings = computed(() => state.meetings.filter((item) => item.title.toLowerCase().includes(query.value.toLowerCase()) && (!status.value || item.status === status.value)))
   const atas = computed(() => state.meetings.filter((item) => item.ata && item.title.toLowerCase().includes(query.value.toLowerCase()) && (!status.value || item.ata.status === status.value)))
@@ -128,7 +135,8 @@ export function useMeetings(props) {
   })
   const detailTask = computed(() => {
     if (detail.value?.type !== 'pendencia') return null
-    return state.tasks.find((item) => item.id === detail.value.id) || null
+    // Só abre pendências visíveis para o setor do usuário (inclusive por link direto).
+    return scopedTasks.value.find((item) => item.id === detail.value.id) || null
   })
   const detailDoc = computed(() => {
     if (detail.value?.type !== 'doc') return null
@@ -188,6 +196,8 @@ export function useMeetings(props) {
       priority: 'Média',
       origin: '',
       decisionId: '',
+      originSector: sectorScope(state.session)?.[0] || '',
+      involvedSectors: [],
       ...(sectorScope(state.session) ? { sector: sectorScope(state.session)[0] } : {}),
       ...(operational.value ? { responsible: myName.value } : {}),
       ...(seed || {}),
@@ -319,14 +329,27 @@ export function useMeetings(props) {
           origin: current.origin || '',
           decisionId: current.decisionId || '',
           notes: current.notes || '',
+          involvedSectors: [...new Set([...(current.involvedSectors || []), current.originSector, current.sector].filter(Boolean))],
         }
+        const actor = actorFrom(state.session)
         const index = current.id ? draft.tasks.findIndex((item) => item.id === current.id) : -1
-        if (index >= 0) draft.tasks[index] = { ...draft.tasks[index], ...record }
-        else draft.tasks.unshift({ id: uid('pen'), createdAt: new Date().toLocaleString('pt-BR'), ...record })
+        if (index >= 0) {
+          const before = draft.tasks[index]
+          const after = { ...before, ...record }
+          const tracked = trackDemandEdit('task', before, after)
+          after.history = [...(before.history || []), ...tracked.events.map((text) => historyEntry(actor, 'event', text))]
+          draft.tasks[index] = after
+          if (tracked.events.length) audit.record(draft, { action: tracked.action, label: tracked.label, module: 'tasks', entityType: 'Pendência', entityId: after.id, entityLabel: after.ref, description: `Pendência "${after.title}".`, changes: tracked.changes })
+        } else {
+          const created = { id: uid('pen'), ref: nextRef(draft.tasks, 'PEN'), createdAt: new Date().toLocaleString('pt-BR'), ...record, originSector: current.originSector || '', history: [historyEntry(actor, 'event', 'Criou a pendência.')] }
+          draft.tasks.unshift(created)
+          audit.record(draft, { action: 'task.created', label: 'Criou pendência', module: 'tasks', entityType: 'Pendência', entityId: created.id, entityLabel: created.ref, description: `Criou a pendência "${created.title}" (responsável: ${created.sector || 'sem setor'}).` })
+        }
       }
       if (kind === 'doc') {
         const record = { ...current, name: current.name.trim() }
         const index = current.id ? draft.documents.findIndex((item) => item.id === current.id) : -1
+        if (!current.id) audit.record(draft, { action: 'document.created', label: 'Cadastrou documento', module: 'documents', entityType: 'Documento', entityLabel: record.name, description: `Cadastrou o documento "${record.name}" (${record.category || 'sem categoria'}).` })
         if (index >= 0) draft.documents[index] = { ...draft.documents[index], ...record }
         else draft.documents.unshift({
           id: uid('doc'),
@@ -358,7 +381,10 @@ export function useMeetings(props) {
       }
       if (current.kind === 'decisao') draft.decisions = draft.decisions.filter((item) => item.id !== current.id)
       if (current.kind === 'pendencia') draft.tasks = draft.tasks.filter((item) => item.id !== current.id)
-      if (current.kind === 'doc') draft.documents = draft.documents.filter((item) => item.id !== current.id)
+      if (current.kind === 'doc') {
+        audit.record(draft, { action: 'document.removed', label: 'Removeu documento', module: 'documents', entityType: 'Documento', entityId: current.id, entityLabel: current.name, description: `Removeu o documento "${current.name}".` })
+        draft.documents = draft.documents.filter((item) => item.id !== current.id)
+      }
     })
     const labels = { reuniao: 'Reunião excluída.', ata: 'Ata excluída.', decisao: 'Decisão excluída.', pendencia: 'Pendência excluída.', doc: 'Documento excluído.' }
     removing.value = null
@@ -385,12 +411,44 @@ export function useMeetings(props) {
   function completeTask() {
     const task = detailTask.value
     if (!task) return
+    const actor = actorFrom(state.session)
     update((draft) => {
       const found = draft.tasks.find((item) => item.id === task.id)
-      if (found) found.status = 'Concluído'
+      if (!found) return
+      const before = found.status
+      found.status = 'Concluído'
+      found.history.push(historyEntry(actor, 'event', 'Concluiu a pendência.'))
+      audit.record(draft, { action: 'task.completed', label: 'Concluiu pendência', module: 'tasks', entityType: 'Pendência', entityId: found.id, entityLabel: found.ref, description: `Pendência "${found.title}" concluída.`, changes: [{ field: 'Status', before, after: 'Concluído' }] })
     })
     flash('Pendência marcada como concluída.')
   }
+
+  function reopenTask() {
+    const task = detailTask.value
+    if (!task) return
+    const actor = actorFrom(state.session)
+    update((draft) => {
+      const found = draft.tasks.find((item) => item.id === task.id)
+      if (!found) return
+      found.status = 'Em andamento'
+      found.history.push(historyEntry(actor, 'event', 'Reabriu a pendência.'))
+      audit.record(draft, { action: 'task.reopened', label: 'Reabriu pendência', module: 'tasks', entityType: 'Pendência', entityId: found.id, entityLabel: found.ref, description: `Pendência "${found.title}" reaberta.`, changes: [{ field: 'Status', before: 'Concluído', after: 'Em andamento' }] })
+    })
+    flash('Pendência reaberta.')
+  }
+
+  // Pendência gerada a partir de uma ocorrência.
+  const sourceOccurrence = computed(() => (detailTask.value?.sourceOccurrenceId ? state.occurrences.find((item) => item.id === detailTask.value.sourceOccurrenceId) : null))
+
+  function toggleTaskSector(sectorName) {
+    const list = form.value.involvedSectors || []
+    form.value.involvedSectors = list.includes(sectorName) ? list.filter((item) => item !== sectorName) : [...list, sectorName]
+  }
+
+  // Link direto (ex.: "Ver pendência" a partir de uma ocorrência).
+  watch(() => props.params?.ver, (id) => {
+    if (id && scopedTasks.value.some((item) => item.id === id)) detail.value = { type: 'pendencia', id }
+  }, { immediate: true })
 
   function createTaskFromDecision() {
     const decision = detailDecision.value
@@ -410,6 +468,13 @@ export function useMeetings(props) {
   }
 
   return {
+    canRoute,
+    taskSectorOptions,
+    globalView,
+    reopenTask,
+    sourceOccurrence,
+    toggleTaskSector,
+    SETORES,
     DOC_CATS,
     DOC_FILTERS,
     MEETING_TYPES,

@@ -1,11 +1,13 @@
 // Lógica do componente Evaluate.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
+import { useAudit } from '@/js/audit/audit-logger'
 import { profileConfig } from '@/js/config/access'
 import { assignedTeams, companyOf, teamChallenge, teamName, uid } from '@/js/data/model'
 import { useHack, go } from '@/js/stores/hack'
 
 export function useEvaluate(props) {
   const { state, update, flash } = useHack()
+  const audit = useAudit()
 
   function teamLabel(team) {
     const challenge = teamChallenge(state, team.id)
@@ -59,7 +61,7 @@ export function useEvaluate(props) {
       const payload = { id: current?.id || uid('av'), teamId: currentTeam.id, judgeName: name, scores: { ...payloadScores }, notes: payloadNotes, status, at: new Date().toLocaleString('pt-BR') }
       if (current) Object.assign(current, payload)
       else draft.evaluations.push(payload)
-      if (status === 'concluida') draft.audit.unshift({ id: uid('aud'), action: 'Avaliação finalizada', at: payload.at, detail: `${name} · ${teamName(currentTeam.id)}` })
+      if (status === 'concluida') audit.record(draft, { action: 'evaluation.finalized', label: 'Finalizou avaliação', module: 'evaluations', entityType: 'Avaliação', entityId: payload.id, entityLabel: teamName(currentTeam.id), description: `${name} finalizou a avaliação da ${teamName(currentTeam.id)}.` })
     })
     ask.value = false
     flash(status === 'concluida' ? 'Avaliação registrada.' : 'Rascunho salvo.')
@@ -76,7 +78,7 @@ export function useEvaluate(props) {
         current.status = 'revisao'
         current.correction = text
       }
-      draft.audit.unshift({ id: uid('aud'), action: 'Correção administrativa', at: new Date().toLocaleString('pt-BR'), detail: `${teamName(currentTeam.id)} · ${text}` })
+      audit.record(draft, { action: 'evaluation.corrected', label: 'Reabriu avaliação para correção', module: 'evaluations', entityType: 'Avaliação', entityId: current?.id || '', entityLabel: teamName(currentTeam.id), description: `Correção administrativa: ${text}`, changes: [{ field: 'Status', before: 'Concluída', after: 'Em revisão' }] })
     })
     correct.value = false
     reason.value = ''

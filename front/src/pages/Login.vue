@@ -63,7 +63,7 @@ function submit(event) {
         <div class="login-public">
           <span>Ainda não possui cadastro?</span>
           <button class="btn ghost full" type="button" @click="go('cadastro')">Criar cadastro público</button>
-          <small>Para votantes e jurados convidados. Contas da organização são criadas pelo SuperAdmin.</small>
+          <small>Para votantes e jurados convidados. Contas da organização são criadas pelo Administrador.</small>
         </div>
         <div class="demo-accounts">
           <span><strong>Contas demonstrativas</strong> — qualquer senha com 4 ou mais caracteres.</span>

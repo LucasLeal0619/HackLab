@@ -5,7 +5,7 @@ import { go, useHack } from '@/js/stores/hack'
 
 export function useRegister() {
   // Cadastro público: apenas Votante (livre) e Jurado (com código de convite).
-  // Perfis internos são criados pelo SuperAdmin em Usuários e Permissões.
+  // Perfis internos são criados pelo Administrador em Usuários e Permissões.
   const OPTIONS = [
     { id: 'Votante', title: 'Votante', text: 'Participe da votação pública das soluções.' },
     { id: 'Jurado', title: 'Jurado', text: 'Avalie as soluções atribuídas a você.' },

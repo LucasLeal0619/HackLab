@@ -1,5 +1,6 @@
 // Lógica do componente Judges.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
+import { useAudit } from '@/js/audit/audit-logger'
 import { canAccess } from '@/js/config/access'
 import { companyOf, inviteCode, teamChallenge, teamName, uid } from '@/js/data/model'
 import { useHack, go } from '@/js/stores/hack'
@@ -10,6 +11,7 @@ export function useJudges(props) {
 
 
   const { state, update, flash } = useHack()
+  const audit = useAudit()
 
   function dash(value) {
     return value ? value : '—'
@@ -85,7 +87,10 @@ export function useJudges(props) {
   const totalVotes = computed(() => state.voting.ballots.length)
 
   function releaseResults() {
-    update((draft) => { draft.resultsReleased = true })
+    update((draft) => {
+      draft.resultsReleased = true
+      audit.record(draft, { action: 'results.published', label: 'Publicou resultados', module: 'results', entityType: 'Resultados', description: 'Resultados liberados para divulgação.' })
+    })
     flash('Resultados liberados para divulgação.')
   }
 
@@ -111,8 +116,17 @@ export function useJudges(props) {
     }
     update((draft) => {
       const index = editing ? draft.judges.findIndex((item) => item.id === editing) : -1
-      if (index >= 0) draft.judges[index] = { ...draft.judges[index], ...record }
-      else draft.judges.push({ id: uid('jur'), ...record })
+      const teamsLabel = (ids) => (ids?.length ? ids.map((id) => teamName(id)).join(', ') : 'Nenhuma')
+      if (index >= 0) {
+        const before = draft.judges[index]
+        draft.judges[index] = { ...before, ...record }
+        const assignedChanged = teamsLabel(before.assignedTeamIds) !== teamsLabel(record.assignedTeamIds)
+        audit.record(draft, { action: assignedChanged ? 'judge.teams-assigned' : 'judge.updated', label: assignedChanged ? 'Atribuiu equipes ao jurado' : 'Editou jurado', module: 'judges', entityType: 'Jurado', entityId: before.id, entityLabel: record.name, description: `Jurado ${record.name}.`, changes: [{ field: 'Equipes atribuídas', before: teamsLabel(before.assignedTeamIds), after: teamsLabel(record.assignedTeamIds) }, { field: 'Empresa', before: before.companyName || 'Sem empresa', after: record.companyName || 'Sem empresa' }, { field: 'Status', before: before.status, after: record.status }] })
+      } else {
+        const id = uid('jur')
+        draft.judges.push({ id, ...record })
+        audit.record(draft, { action: 'judge.created', label: 'Cadastrou jurado', module: 'judges', entityType: 'Jurado', entityId: id, entityLabel: record.name, description: `Cadastrou o jurado ${record.name} · equipes: ${teamsLabel(record.assignedTeamIds)}.` })
+      }
     })
     modal.value = null
     flash(editing ? 'Alterações salvas.' : 'Jurado adicionado.')
@@ -235,7 +249,9 @@ export function useJudges(props) {
   function applyVote() {
     const action = confirmVote.value
     update((draft) => {
+      const before = draft.voting.status
       draft.voting.status = action === 'start' ? 'Em andamento' : 'Encerrada'
+      audit.record(draft, { action: action === 'start' ? 'voting.opened' : 'voting.closed', label: action === 'start' ? 'Abriu votação' : 'Encerrou votação', module: 'voting', entityType: 'Votação do público', description: action === 'start' ? 'Votação do público iniciada.' : `Votação do público encerrada com ${draft.voting.ballots.length} votos.`, changes: [{ field: 'Situação', before, after: draft.voting.status }] })
     })
     confirmVote.value = false
     showVotes.value = false

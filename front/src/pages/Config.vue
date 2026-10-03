@@ -9,7 +9,7 @@ import { useConfig } from '@/js/pages/config'
 defineProps({
   section: { type: String, default: 'evento' },
 })
-const { MATRIX, state, update, flash, admin, dated, form, modal, user, query, profile, showPassword, fields, sectorLabel, INTERNAL_PROFILES, audience, externalUsers, visible, setAudience, saveEvent, openCreate, openEdit, saveUser, toggleSector, PROFILE_NAMES, profileConfig, SETORES, isExternalProfile, toneFor, profileOptions } = useConfig()
+const { MATRIX, state, admin, dated, form, modal, user, query, profile, showPassword, fields, sectorLabel, INTERNAL_PROFILES, audience, externalUsers, visible, setAudience, saveEvent, openCreate, openEdit, saveUser, toggleSector, PROFILE_NAMES, profileConfig, SETORES, isExternalProfile, toneFor, profileOptions, setUserStatus } = useConfig()
 </script>
 
 <template>
@@ -53,7 +53,7 @@ const { MATRIX, state, update, flash, admin, dated, form, modal, user, query, pr
         <button type="button" class="btn ghost" @click="form = { ...state.event }; dated = Boolean(state.event.date)">Cancelar</button>
         <button class="btn" type="submit" :disabled="!admin">Salvar alterações</button>
       </div>
-      <p v-if="!admin" class="stat-hint">Este perfil consulta a configuração. Só o SuperAdmin salva alterações.</p>
+      <p v-if="!admin" class="stat-hint">Este perfil consulta a configuração. Só o Administrador salva alterações.</p>
     </form>
     <div v-else>
       <div class="tabs" role="tablist">
@@ -178,7 +178,7 @@ const { MATRIX, state, update, flash, admin, dated, form, modal, user, query, pr
       <p><b>Nome</b> {{ user.name }}<br /><b>Perfil</b> {{ user.profile }}<br /><template v-if="isExternalProfile(user.profile)"><b>Origem</b> {{ user.origin || 'Cadastro público' }}<br /><b>{{ user.profile === 'Jurado' ? 'Empresa' : 'Categoria' }}</b> {{ user.profile === 'Jurado' ? sectorLabel(user) : (user.category || 'Público') }}<br /></template><template v-else><b>Setor</b> {{ sectorLabel(user) }}<br /><b>Função</b> {{ user.role || '—' }}<br /></template><b>Status</b> <Badge :tone="toneFor(user.status)">{{ user.status }}</Badge></p>
       <p v-if="user.status === 'Inativo'">Este usuário não tem acesso ao HackLab enquanto estiver inativo.</p>
       <button v-if="admin && user.status === 'Ativo'" class="btn danger small" type="button" @click="modal = 'off'">Desativar usuário</button>
-      <button v-if="admin && user.status === 'Inativo'" class="btn small" type="button" @click="update((draft) => { const found = draft.users.find((item) => item.id === user.id); if (found) found.status = 'Ativo' }); user = { ...user, status: 'Ativo' }; flash('Usuário ativado.'); modal = 'detalhe'">Ativar usuário</button>
+      <button v-if="admin && user.status === 'Inativo'" class="btn small" type="button" @click="setUserStatus(user, 'Ativo'); modal = 'detalhe'">Ativar usuário</button>
       <template #footer>
         <button class="btn ghost" type="button" @click="modal = null">Fechar</button>
         <button v-if="admin && !isExternalProfile(user.profile)" class="btn" type="button" @click="openEdit(user)">Editar usuário</button>
@@ -189,7 +189,7 @@ const { MATRIX, state, update, flash, admin, dated, form, modal, user, query, pr
       <p>{{ user.name }} fica inativo e não consegue entrar no HackLab. O cadastro continua na lista.</p>
       <template #footer>
         <button class="btn ghost" type="button" @click="modal = 'detalhe'">Cancelar</button>
-        <button class="btn danger" type="button" @click="update((draft) => { const found = draft.users.find((item) => item.id === user.id); if (found) found.status = 'Inativo' }); user = { ...user, status: 'Inativo' }; flash('Usuário desativado.'); modal = null">Desativar</button>
+        <button class="btn danger" type="button" @click="setUserStatus(user, 'Inativo'); modal = null">Desativar</button>
       </template>
     </Modal>
   </Page>

@@ -10,8 +10,8 @@ export const CREDENTIAL_STATUS = ['Ativa', 'Bloqueada', 'Cancelada']
 export const EVENT_DAYS = [1, 2, 3]
 
 const PROFILE_CATEGORY = {
-  SuperAdmin: 'Organização',
-  'Gestor de Setor': 'Organização',
+  Administrador: 'Organização',
+  Gestor: 'Organização',
   Editor: 'Organização',
   Validador: 'Organização',
   Consultor: 'Professor',

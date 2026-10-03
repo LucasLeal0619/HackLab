@@ -11,15 +11,15 @@ const { hack, open, root, session, config, activeSector, external, choose, choos
       <span class="avatar"><Icon name="users" :size="16" /></span>
       <span class="user-meta">
         <b>{{ session?.name || 'Usuário' }}</b>
-        <span><span class="status-dot" /> {{ session?.profile }}</span>
+        <span><span class="status-dot" /> {{ session?.profile }}{{ activeSector ? ` · ${activeSector}` : "" }}</span>
       </span>
     </button>
     <div v-if="open" class="profile-back" aria-hidden="true" @click="open = false" />
     <div v-if="open" class="popover profile-menu" role="dialog" aria-label="Meu perfil">
       <div class="row-between"><h3>Meu perfil</h3><button class="icon-btn" type="button" aria-label="Fechar" title="Fechar" @click="open = false"><Icon name="x" :size="16" /></button></div>
       <p class="profile-who"><b>{{ session?.name }}</b><span>{{ session?.email }}</span></p>
-      <p class="profile-current"><span>Perfil atual</span><b>{{ session?.profile }}</b><small>{{ config.represents }}</small></p>
-      <button v-if="external && hack.state.demo" class="linkish profile-demo-exit" type="button" @click="choose('SuperAdmin')">Modo demonstração: voltar ao SuperAdmin</button>
+      <p class="profile-current"><span>Perfil atual</span><b>{{ session?.profile }}{{ activeSector ? ` · ${activeSector}` : "" }}</b><small>{{ config.represents }}</small></p>
+      <button v-if="external && hack.state.demo" class="linkish profile-demo-exit" type="button" @click="choose('Administrador')">Modo demonstração: voltar ao Administrador</button>
       <p v-if="!external" class="stat-hint">Protótipo: selecione um perfil para visualizar sua experiência no HackLab.</p>
       <div v-if="!external" class="profile-grid" role="group" aria-label="Perfis de acesso">
         <button v-for="name in PROFILE_NAMES" :key="name" type="button" class="profile-option" :class="{ on: session?.profile === name }" :aria-pressed="session?.profile === name" @click="choose(name)">{{ name }}</button>

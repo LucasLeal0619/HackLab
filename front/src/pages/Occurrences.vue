@@ -6,12 +6,13 @@ import FilterPanel from '../components/FilterPanel.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
+import DemandActivity from '../components/DemandActivity.vue'
 import { useOccurrences } from '@/js/pages/occurrences'
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },
 })
-const { DAYS, state, scope, sectorOptions, operational, filters, form, detailId, solving, removing, dayLabel, list, counts, detail, filtering, advancedFilters, clearFilters, openNew, openEdit, save, openSolve, saveSolution, remove, OCC_CATEGORIES, OCC_PRIORITIES, OCC_STATUS, teamName, toneFor } = useOccurrences(props)
+const { DAYS, state, scope, sectorOptions, operational, filters, form, detailId, solving, removing, dayLabel, list, counts, detail, filtering, advancedFilters, clearFilters, openNew, openEdit, save, openSolve, saveSolution, remove, OCC_CATEGORIES, OCC_PRIORITIES, OCC_STATUS, teamName, toneFor, canRoute, responsibleOptions, generating, reopen, relatedTasks, openGenerate, generateTask, openTask, toggleInvolved, SETORES } = useOccurrences(props)
 </script>
 
 <template>
@@ -56,7 +57,7 @@ const { DAYS, state, scope, sectorOptions, operational, filters, form, detailId,
             <td colspan="7"><Empty :title="state.occurrences.length ? 'Nenhuma ocorrência para estes filtros.' : 'Nenhuma ocorrência registrada.'" text="Ocorrências são fatos ou problemas que aconteceram. O que ainda precisa ser feito fica em Pendências." /></td>
           </tr>
           <tr v-for="item in list" :key="item.id">
-            <td>{{ item.title }}<template v-if="item.day || item.at"><br /><small class="stat-hint">{{ [item.day ? `Dia ${item.day}` : '', item.at].filter(Boolean).join(' · ') }}</small></template></td>
+            <td>{{ item.title }} <small class="stat-hint">{{ item.ref }}</small><template v-if="item.day || item.at"><br /><small class="stat-hint">{{ [item.day ? `Dia ${item.day}` : '', item.at].filter(Boolean).join(' · ') }}</small></template></td>
             <td>{{ item.categoryLabel }}</td>
             <td>{{ item.place || '—' }}</td>
             <td>{{ item.sectorLabel || '—' }}</td>
@@ -87,12 +88,26 @@ const { DAYS, state, scope, sectorOptions, operational, filters, form, detailId,
         <dt>Status</dt><dd><Badge :tone="toneFor(detail.statusLabel)">{{ detail.statusLabel }}</Badge></dd>
         <dt>Solução</dt><dd>{{ detail.solution || '—' }}</dd>
         <dt>Observação</dt><dd>{{ detail.notes || '—' }}</dd>
+        <dt>Código</dt><dd>{{ detail.ref }}</dd>
       </dl>
+      <template v-if="relatedTasks.length">
+        <h3 class="ops-title">Pendência relacionada</h3>
+        <ul class="related-list">
+          <li v-for="task in relatedTasks" :key="task.id">
+            <span><b>{{ task.title }}</b> <small class="stat-hint">{{ task.ref }}</small></span>
+            <Badge :tone="toneFor(task.status)">{{ task.status }}</Badge>
+            <button class="btn ghost small" type="button" @click="openTask(task.id)">Ver pendência</button>
+          </li>
+        </ul>
+      </template>
+      <DemandActivity :key="detail.id" kind="occurrence" :id="detail.id" />
       <template #footer>
         <template v-if="!operational">
           <button class="btn ghost" type="button" @click="removing = detail">Excluir</button>
           <button class="btn ghost" type="button" @click="openEdit(detail)">Editar</button>
-          <button v-if="detail.statusLabel !== 'Resolvida'" class="btn" type="button" @click="openSolve">Registrar solução</button>
+          <button v-if="canRoute" class="btn ghost" type="button" @click="openGenerate">Gerar Pendência</button>
+          <button v-if="detail.statusLabel === 'Resolvida'" class="btn ghost" type="button" @click="reopen">Reabrir</button>
+          <button v-else class="btn" type="button" @click="openSolve">Registrar solução</button>
         </template>
         <button v-else class="btn ghost" type="button" @click="detailId = null">Fechar</button>
       </template>
@@ -109,9 +124,22 @@ const { DAYS, state, scope, sectorOptions, operational, filters, form, detailId,
         <Field label="Setor responsável">
           <select v-model="form.sector" class="input">
             <option v-if="!scope" value="">Não se aplica</option>
-            <option v-for="item in sectorOptions" :key="item">{{ item }}</option>
+            <option v-for="item in responsibleOptions" :key="item">{{ item }}</option>
           </select>
         </Field>
+        <Field v-if="!scope && !form.id" label="Setor de origem">
+          <select v-model="form.originSector" class="input">
+            <option value="">Organização (sem setor)</option>
+            <option v-for="item in SETORES" :key="item">{{ item }}</option>
+          </select>
+        </Field>
+        <div v-if="canRoute" class="field span-2">
+          <span>Setores envolvidos</span>
+          <small class="stat-hint">Acompanham e colaboram. O setor responsável continua sendo um só.</small>
+          <div class="chips">
+            <button v-for="item in SETORES" :key="item" type="button" class="chip" :class="{ on: (form.involvedSectors || []).includes(item) }" :aria-pressed="(form.involvedSectors || []).includes(item)" @click="toggleInvolved(item)">{{ item }}</button>
+          </div>
+        </div>
         <Field label="Descrição" class-name="span-2"><textarea v-model="form.description" class="input" /></Field>
         <Field label="Dia do evento">
           <select v-model="form.day" class="input">
@@ -153,6 +181,28 @@ const { DAYS, state, scope, sectorOptions, operational, filters, form, detailId,
       <template #footer>
         <button class="btn ghost" type="button" @click="solving = null">Cancelar</button>
         <button class="btn" type="button" @click="saveSolution">Salvar solução</button>
+      </template>
+    </Modal>
+
+    <Modal v-if="generating" title="Gerar Pendência" subtitle="A pendência fica ligada a esta ocorrência." @close="generating = null">
+      <Field label="Título" required><input v-model="generating.title" class="input" placeholder="Ex.: Providenciar projetor reserva para o Dia 3" /></Field>
+      <div class="form-grid">
+        <Field label="Responsável">
+          <select v-model="generating.sector" class="input">
+            <option v-for="item in SETORES" :key="item">{{ item }}</option>
+          </select>
+        </Field>
+        <Field label="Prioridade">
+          <select v-model="generating.priority" class="input">
+            <option v-for="item in OCC_PRIORITIES" :key="item">{{ item }}</option>
+          </select>
+        </Field>
+        <Field label="Prazo"><input v-model="generating.due" class="input" type="date" /></Field>
+      </div>
+      <Field label="Descrição"><textarea v-model="generating.description" class="input" rows="3" /></Field>
+      <template #footer>
+        <button class="btn ghost" type="button" @click="generating = null">Cancelar</button>
+        <button class="btn" type="button" @click="generateTask">Criar Pendência</button>
       </template>
     </Modal>
 

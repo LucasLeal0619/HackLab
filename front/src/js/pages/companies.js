@@ -1,5 +1,6 @@
 // Lógica do componente Companies.vue (o template fica no .vue).
 import { computed, ref } from 'vue'
+import { useAudit } from '@/js/audit/audit-logger'
 import { CHALLENGE_FLOW, companyOf, teamName, uid } from '@/js/data/model'
 import { go, useHack } from '@/js/stores/hack'
 import { toneFor } from '@/js/utils/tone'
@@ -16,6 +17,7 @@ export function useCompanies(props) {
   const TIPOS = ['Empresa participante', 'Parceira', 'Patrocinadora', 'Apoio', 'Outro']
 
   const { state, update, flash } = useHack()
+  const audit = useAudit()
   const tab = computed(() => (props.mode === 'desafios' ? 'desafios' : 'empresas'))
   const query = ref('')
   const status = ref('Todos')
@@ -60,9 +62,15 @@ export function useCompanies(props) {
     update((draft) => {
       if (current.id) {
         const index = draft.companies.findIndex((item) => item.id === current.id)
-        if (index >= 0) draft.companies[index] = { ...draft.companies[index], ...current, name: current.name.trim(), reps }
+        if (index >= 0) {
+          const before = draft.companies[index]
+          draft.companies[index] = { ...before, ...current, name: current.name.trim(), reps }
+          audit.record(draft, { action: 'company.updated', label: 'Editou empresa', module: 'companies', entityType: 'Empresa', entityId: before.id, entityLabel: current.name.trim(), description: `Empresa ${current.name.trim()}.`, changes: [{ field: 'Nome', before: before.name, after: current.name.trim() }, { field: 'Status', before: before.status, after: current.status }] })
+        }
       } else {
-        draft.companies.push({ ...current, id: uid('emp'), name: current.name.trim(), reps })
+        const id = uid('emp')
+        draft.companies.push({ ...current, id, name: current.name.trim(), reps })
+        audit.record(draft, { action: 'company.created', label: 'Cadastrou empresa', module: 'companies', entityType: 'Empresa', entityId: id, entityLabel: current.name.trim(), description: `Cadastrou a empresa ${current.name.trim()}.` })
       }
     })
     modal.value = false
@@ -81,10 +89,14 @@ export function useCompanies(props) {
       if (current.id) {
         const index = draft.challenges.findIndex((item) => item.id === current.id)
         if (index >= 0) {
-          draft.challenges[index] = { ...draft.challenges[index], ...current, title: current.title.trim(), updatedAt: new Date().toLocaleString('pt-BR') }
+          const before = draft.challenges[index]
+          draft.challenges[index] = { ...before, ...current, title: current.title.trim(), updatedAt: new Date().toLocaleString('pt-BR') }
+          audit.record(draft, { action: 'challenge.updated', label: 'Editou desafio', module: 'challenges', entityType: 'Desafio', entityId: before.id, entityLabel: current.title.trim(), description: `Desafio ${current.title.trim()}.`, changes: [{ field: 'Título', before: before.title, after: current.title.trim() }, { field: 'Status', before: before.status, after: current.status }] })
         }
       } else {
-        draft.challenges.push({ ...current, id: uid('des'), title: current.title.trim(), status: 'Recebido', teamId: null, updatedAt: new Date().toLocaleString('pt-BR') })
+        const id = uid('des')
+        draft.challenges.push({ ...current, id, title: current.title.trim(), status: 'Recebido', teamId: null, updatedAt: new Date().toLocaleString('pt-BR') })
+        audit.record(draft, { action: 'challenge.created', label: 'Cadastrou desafio', module: 'challenges', entityType: 'Desafio', entityId: id, entityLabel: current.title.trim(), description: `Cadastrou o desafio ${current.title.trim()}.` })
         const company = draft.companies.find((item) => item.id === current.companyId)
         if (company && company.status === 'Em cadastro') company.status = 'Aguardando desafio'
       }

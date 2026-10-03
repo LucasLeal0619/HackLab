@@ -30,7 +30,7 @@ export function currentUser(state) {
 export const ACCOUNTS = {
   'admin@senac.br': {
     name: 'Usuário Demonstrativo',
-    profile: 'SuperAdmin',
+    profile: 'Administrador',
     sector: '',
     role: 'Equipe de TI',
   },
@@ -53,11 +53,11 @@ export const ACCOUNTS = {
 export function seedUsers() {
   const user = (id, name, profile, extra = {}) => ({ id, name, email: `${id.replace('usr-', 'usuario')}@exemplo.com`, profile, sector: '', sectors: [], role: '', status: 'Ativo', ...extra })
   return [
-    user('usr-1', 'Usuário SuperAdmin', 'SuperAdmin', { role: 'Equipe de TI' }),
+    user('usr-1', 'Usuário Administrador', 'Administrador', { role: 'Equipe de TI' }),
     user('usr-2', 'Usuário Consultor', 'Consultor', { sector: 'Acompanhamento', role: 'Professor / Coordenação' }),
     user('usr-3', 'Editor demonstrativo', 'Editor', { sector: 'Tecnologia', sectors: ['Tecnologia'], role: 'Apoio técnico' }),
     user('usr-4', 'Editor demonstrativo 02', 'Editor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Registro audiovisual', status: 'Inativo' }),
-    user('usr-5', 'Gestor demonstrativo', 'Gestor de Setor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Líder do setor' }),
+    user('usr-5', 'Gestor demonstrativo', 'Gestor', { sector: 'Marketing', sectors: ['Marketing'], role: 'Líder do setor' }),
     user('usr-6', 'Validador demonstrativo', 'Validador', { role: 'Check-in' }),
     // Cadastros externos (Jurado e Votante) criam a própria conta; estes são exemplos demonstrativos.
     user('usr-7', 'Jurado demonstrativo 01', 'Jurado', { email: 'jurado.demo@exemplo.com', role: 'Representante', companyId: 'emp-1', origin: 'Convite', category: 'Jurado' }),

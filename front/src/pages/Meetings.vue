@@ -6,12 +6,13 @@ import FilterPanel from '../components/FilterPanel.vue'
 import Field from '../components/Field.vue'
 import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
+import DemandActivity from '../components/DemandActivity.vue'
 import { useMeetings } from '@/js/pages/meetings'
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },
 })
-const { DOC_CATS, DOC_FILTERS, MEETING_TYPES, PRIORITIES, DUE_FILTERS, docCat, dueInfo, outsideHours, ataProgress, state, tab, pageCopy, modal, form, query, status, sector, priority, docCatFilter, prazo, detail, removing, ataForm, sectorOptions, operational, myName, canEditTask, meetings, atas, decisions, tasks, docs, activeUsers, detailMeeting, detailDecision, detailTask, detailDoc, meetingPeople, linkedDecisions, linkedDocs, manifestationDone, decisionSubtitle, taskDue, modalTitle, openPendencia, openMeeting, editMeeting, openDecision, editDecision, openDocument, editDocument, showMeeting, toggleParticipant, onFile, meetingName, save, confirmRemove, publishAta, completeTask, createTaskFromDecision, askRemove, go, toneFor } = useMeetings(props)
+const { DOC_CATS, DOC_FILTERS, MEETING_TYPES, PRIORITIES, DUE_FILTERS, docCat, dueInfo, outsideHours, ataProgress, state, tab, pageCopy, modal, form, query, status, sector, priority, docCatFilter, prazo, detail, removing, ataForm, sectorOptions, operational, myName, canEditTask, meetings, atas, decisions, tasks, docs, activeUsers, detailMeeting, detailDecision, detailTask, detailDoc, meetingPeople, linkedDecisions, linkedDocs, manifestationDone, decisionSubtitle, taskDue, modalTitle, openPendencia, openMeeting, editMeeting, openDecision, editDecision, openDocument, editDocument, showMeeting, toggleParticipant, onFile, meetingName, save, confirmRemove, publishAta, completeTask, createTaskFromDecision, askRemove, go, toneFor, canRoute, taskSectorOptions, globalView, reopenTask, sourceOccurrence, toggleTaskSector, SETORES } = useMeetings(props)
 </script>
 
 <template>
@@ -277,9 +278,21 @@ const { DOC_CATS, DOC_FILTERS, MEETING_TYPES, PRIORITIES, DUE_FILTERS, docCat, d
       <dt>Origem</dt><dd>{{ detailTask.origin || 'Cadastro direto' }}</dd>
       <dt>Status</dt><dd><Badge :tone="toneFor(detailTask.status)">{{ detailTask.status }}</Badge></dd>
       <dt>Observação</dt><dd>{{ detailTask.notes || '—' }}</dd>
+      <dt>Código</dt><dd>{{ detailTask.ref }}</dd>
     </dl>
+    <template v-if="sourceOccurrence">
+      <h3 class="ops-title">Originada da ocorrência</h3>
+      <ul class="related-list">
+        <li>
+          <span><b>{{ sourceOccurrence.title }}</b> <small class="stat-hint">{{ sourceOccurrence.ref }}</small></span>
+          <button class="btn ghost small" type="button" @click="go(`ocorrencias?ver=${sourceOccurrence.id}`)">Ver ocorrência</button>
+        </li>
+      </ul>
+    </template>
+    <DemandActivity :key="detailTask.id" kind="task" :id="detailTask.id" />
     <template #footer>
       <button v-if="detailTask.status !== 'Concluído' && canEditTask(detailTask)" class="btn" type="button" @click="completeTask">Marcar como concluída</button>
+      <button v-else-if="detailTask.status === 'Concluído' && !operational" class="btn ghost" type="button" @click="reopenTask">Reabrir</button>
       <button v-else class="btn ghost" type="button" @click="detail = null">Fechar</button>
     </template>
   </Drawer>
@@ -365,12 +378,25 @@ const { DOC_CATS, DOC_FILTERS, MEETING_TYPES, PRIORITIES, DUE_FILTERS, docCat, d
     <div v-if="modal === 'pendencia'" class="form-grid">
       <Field label="Título" required class="span-2"><input v-model="form.title" class="input" /></Field>
       <Field label="Descrição" class="span-2"><textarea v-model="form.description" class="input" /></Field>
-      <Field label="Setor">
+      <Field label="Setor responsável">
         <select v-model="form.sector" class="input">
           <option value="">Selecione o setor</option>
-          <option v-for="item in sectorOptions" :key="item">{{ item }}</option>
+          <option v-for="item in taskSectorOptions" :key="item">{{ item }}</option>
         </select>
       </Field>
+      <Field v-if="globalView && !form.id" label="Setor de origem">
+        <select v-model="form.originSector" class="input">
+          <option value="">Organização (sem setor)</option>
+          <option v-for="item in SETORES" :key="item">{{ item }}</option>
+        </select>
+      </Field>
+      <div v-if="canRoute" class="field span-2">
+        <span>Setores envolvidos</span>
+        <small class="stat-hint">Acompanham e colaboram. O setor responsável continua sendo um só.</small>
+        <div class="chips">
+          <button v-for="item in SETORES" :key="item" type="button" class="chip" :class="{ on: (form.involvedSectors || []).includes(item) }" :aria-pressed="(form.involvedSectors || []).includes(item)" @click="toggleTaskSector(item)">{{ item }}</button>
+        </div>
+      </div>
       <Field label="Responsável">
         <select v-model="form.responsible" class="input" :disabled="operational">
           <option value="">Selecione</option>

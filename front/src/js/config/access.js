@@ -45,6 +45,7 @@ const ITEMS = {
   },
   relatorios: { id: 'relatorios', label: 'Relatórios', icon: 'chart' },
   usuarios: { id: 'usuarios', label: 'Usuários e Permissões', icon: 'users' },
+  auditoria: { id: 'auditoria', label: 'Auditoria', icon: 'eye' },
 }
 
 // Item com apenas alguns submenus.
@@ -71,6 +72,7 @@ const LEAF = {
   'votacao-gestao': ['votacao-gestao'],
   resultados: ['resultados', 'premiacao', 'painel'],
   usuarios: ['usuarios'],
+  auditoria: ['auditoria'],
   relatorios: ['relatorios', 'relatorio'],
 }
 
@@ -78,20 +80,21 @@ const SECTOR_WORK = { id: 'setores', label: 'Meu Setor', icon: 'grid' }
 
 // Ordem = ordem do seletor "Meu perfil".
 export const ACCESS_PROFILES = {
-  SuperAdmin: {
+  Administrador: {
     key: 'superadmin',
     represents: 'Administração geral do HackLab, com acesso global',
     home: 'dashboard',
     layout: 'admin',
     globalAdmin: true,
+    routeDemands: true,
     nav: [
       { group: 'Dashboard', items: [ITEMS.dashboard] },
       { group: 'Organização', items: [ITEMS.preparacao, ITEMS.gestao] },
       { group: 'Evento', items: [ITEMS.presenca, ITEMS.encerramento] },
       { group: 'Análise', items: [ITEMS.relatorios] },
-      { group: 'Administração', items: [ITEMS.usuarios] },
+      { group: 'Administração', items: [ITEMS.usuarios, ITEMS.auditoria] },
     ],
-    // Experiências focadas que o SuperAdmin pode abrir a partir da gestão.
+    // Experiências focadas que o Administrador pode abrir a partir da gestão.
     extra: ['area-jurado', 'avaliar', 'votacao', 'apresentacao'],
   },
   Consultor: {
@@ -107,12 +110,13 @@ export const ACCESS_PROFILES = {
     ],
     extra: ['apresentacao'],
   },
-  'Gestor de Setor': {
+  Gestor: {
     key: 'sectorManager',
     represents: 'Liderança do setor atribuído, sem acesso global',
     home: 'dashboard',
     layout: 'admin',
     sectorScoped: true,
+    routeDemands: true,
     nav: [
       { group: 'Dashboard', items: [ITEMS.dashboard] },
       { group: 'Meu setor', items: [SECTOR_WORK] },
@@ -176,7 +180,7 @@ export const ACCESS_PROFILES = {
 export const PROFILE_NAMES = Object.keys(ACCESS_PROFILES)
 
 export function profileConfig(profile) {
-  return ACCESS_PROFILES[profile] || ACCESS_PROFILES.SuperAdmin
+  return ACCESS_PROFILES[profile] || ACCESS_PROFILES.Administrador
 }
 
 const ALLOWED = Object.fromEntries(PROFILE_NAMES.map((name) => {
@@ -187,7 +191,7 @@ const ALLOWED = Object.fromEntries(PROFILE_NAMES.map((name) => {
 }))
 
 export function canAccess(profile, path) {
-  return ALLOWED[profile in ALLOWED ? profile : 'SuperAdmin'].has(String(path || '').split('?')[0])
+  return ALLOWED[profile in ALLOWED ? profile : 'Administrador'].has(String(path || '').split('?')[0])
 }
 
 export function homeFor(profile) {
@@ -215,7 +219,7 @@ export function navState(path, profile) {
   return { item: '', group: '' }
 }
 
-// Gestor de Setor e Editor enxergam apenas os setores atribuídos; demais perfis não têm recorte (null).
+// Gestor e Editor enxergam apenas os setores atribuídos; demais perfis não têm recorte (null).
 export function sectorScope(session) {
   if (!profileConfig(session?.profile).sectorScoped) return null
   const list = (session?.sectors?.length ? session.sectors : [session?.sector]).filter((name) => SETORES.includes(name))
@@ -227,16 +231,24 @@ export function inScope(session, sector) {
   return !scope || scope.includes(sector)
 }
 
-// Perfil antigo do protótipo ("Administrador") passou a se chamar SuperAdmin.
+// Nomes antigos do protótipo continuam válidos em dados salvos: SuperAdmin → Administrador, Gestor de Setor → Gestor.
+const LEGACY_PROFILES = { SuperAdmin: 'Administrador', 'Gestor de Setor': 'Gestor' }
+
 export function migrateProfile(profile) {
-  return profile === 'Administrador' ? 'SuperAdmin' : profile
+  return LEGACY_PROFILES[profile] || profile
 }
 
-export function isSuperAdmin(session) {
+export function isAdmin(session) {
   return Boolean(profileConfig(session?.profile).globalAdmin)
 }
 
-// Editor: ações operacionais apenas. Gestor, Consultor e SuperAdmin mantêm o controle do que veem.
+// Editor: ações operacionais apenas. Gestor, Consultor e Administrador mantêm o controle do que veem.
 export function isOperational(session) {
   return Boolean(profileConfig(session?.profile).operational)
+}
+
+// Encaminhar demandas entre setores e gerar pendências a partir de ocorrências: Administrador e Gestor.
+// O Editor registra e comenta; o Gestor decide os encaminhamentos do setor.
+export function canRouteDemands(session) {
+  return Boolean(profileConfig(session?.profile).routeDemands)
 }
