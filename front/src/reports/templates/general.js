@@ -16,6 +16,7 @@ export function buildGeneralReportData(state) {
       ['Empresas participantes', d.count((state.companies || []).length)],
       ['Desafios cadastrados', d.count((state.challenges || []).length)],
       ['Participantes com presença registrada', d.count(facts.withPresence)],
+      ['Credenciais do evento', d.count((state.credentials || []).length)],
       ['Pendências abertas', d.count(d.openTasks(state).length)],
       ['Ocorrências registradas', `${d.count(occurrences.length)} (${d.count(occurrences.filter(d.isOpen).length)} abertas)`],
       ['Avaliações concluídas', d.count((state.evaluations || []).filter((item) => item.status === 'concluida').length)],
@@ -24,6 +25,7 @@ export function buildGeneralReportData(state) {
     ],
     sections: [
       s.participantsSection(state, { full: false }),
+      s.accessSection(state),
       s.teamsSection(state),
       s.companiesSection(state),
       s.sectorsSection(state),

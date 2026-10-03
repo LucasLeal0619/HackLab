@@ -62,6 +62,7 @@ function legacyTarget(current, currentParams) {
   }
   if (current === 'empresas' && currentParams.aba === 'desafios') return 'desafios'
   // Antigo Modo Evento: presença e credenciais ficam em Credenciais e Presença.
+  // Antigos ingresso e validação de ingresso: tudo fica em Credenciais e Presença.
   if (current === 'evento' || current === 'ingresso' || current === 'validar') {
     return [1, 2, 3].includes(Number(currentParams.dia)) ? `presenca?dia=${currentParams.dia}` : 'presenca'
   }

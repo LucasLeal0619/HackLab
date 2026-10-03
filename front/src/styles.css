@@ -1385,3 +1385,24 @@ html.contrast .nav-item.active { box-shadow: inset 3px 0 0 #fff; }
   .login-card .btn { min-height: 48px; }
   .login-card .input { font-size: 16px; }
 }
+
+/* Credenciais e Presença */
+.attendance-sections { margin-bottom: 12px; }
+.attendance-bar { justify-content: flex-start; }
+.attendance-bar .tabs { margin-right: auto; }
+.attendance-bar .attendance-filter { width: auto; min-width: 170px; flex: 0 0 auto; }
+.credential-card { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 14px; background: #fff; }
+.credential-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 16px; background: var(--blue); color: #fff; border-bottom: 3px solid var(--orange); }
+.credential-head span { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .9; }
+.credential-body { display: grid; justify-items: center; gap: 6px; padding: 16px; text-align: center; }
+.credential-body p { margin: 0; }
+.credential-name { font-size: 18px; font-weight: 700; }
+@media (max-width: 767px) {
+  .attendance-bar .attendance-filter { width: 100%; min-height: 48px; }
+}
+/* Barra superior administrativa em celular: mantém só ícones para não gerar scroll horizontal. */
+@media (max-width: 560px) {
+  .topbar .demo-badge { display: none; }
+  .topbar .a11y-label { display: none; }
+  .topbar .user-meta { display: none; }
+}

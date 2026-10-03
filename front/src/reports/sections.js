@@ -26,6 +26,19 @@ export function participantsSection(state, { full = true } = {}) {
   return section('Participantes e presença', blocks)
 }
 
+export function accessSection(state) {
+  const credentials = state.credentials || []
+  return section('Acesso e presença', [
+    kv([
+      ['Credenciais emitidas', d.count(credentials.length)],
+      ['Credenciais ativas', d.count(credentials.filter((item) => item.status === 'Ativa').length)],
+      ['Bloqueadas ou canceladas', d.count(credentials.filter((item) => item.status !== 'Ativa').length)],
+    ]),
+    table(['Categoria', 'Credenciais', 'Ativas', 'Dia 1', 'Dia 2', 'Dia 3'], d.accessRows(state), ['*', 65, 50, 45, 45, 45]),
+    note('Presença por dia considera todas as categorias de credencial: participantes, organização, professores, jurados, público e convidados.'),
+  ])
+}
+
 export function teamsSection(state) {
   return section('Equipes', [
     kv([['Equipes cadastradas', d.count((state.teams || []).length)], ['Tamanho de referência por equipe', d.count(state.teamSize)]]),

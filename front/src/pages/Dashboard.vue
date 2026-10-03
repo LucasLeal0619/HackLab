@@ -20,7 +20,12 @@ const openOcc = computed(() => openOccList.value.length)
 const available = computed(() => state.students.filter(isAvailable).length)
 // Presença do dia de referência do evento (último dia com check-in; antes do evento, Dia 1).
 const eventDay = computed(() => currentEventDay(state))
-const dayRecords = computed(() => state.students.map((student) => presenceOf(state, student.id, eventDay.value)).filter(Boolean))
+// Credenciais do evento (todas as categorias) para o dia de referência.
+const activeCredentials = computed(() => (state.credentials || []).filter((item) => item.status === 'Ativa'))
+const dayCredentials = computed(() => activeCredentials.value.filter((item) => item.days.includes(eventDay.value)))
+const dayPresent = computed(() => (state.credentials || []).filter((item) => presenceOf(state, item.personId, eventDay.value)).length)
+const dayMissing = computed(() => dayCredentials.value.filter((item) => !presenceOf(state, item.personId, eventDay.value)).length)
+const blockedCredentials = computed(() => (state.credentials || []).filter((item) => item.status === 'Bloqueada').length)
 const dayStarted = computed(() => state.checkins.some((item) => Number(item.day) === eventDay.value))
 const finishedEvals = computed(() => state.evaluations.filter((item) => item.status === 'concluida').length)
 const votes = computed(() => state.voting?.ballots?.length || 0)
@@ -63,9 +68,10 @@ const adminDomains = computed(() => [
     to: `presenca?dia=${eventDay.value}`,
     action: 'Ver Credenciais e Presença',
     items: [
-      { label: `Presentes · Dia ${eventDay.value}`, value: dayRecords.value.length, to: `presenca?dia=${eventDay.value}` },
-      { label: 'Não registrados', value: state.students.length - dayRecords.value.length, to: `presenca?dia=${eventDay.value}` },
-      { label: 'Registros manuais', value: dayRecords.value.filter((item) => item.method === 'Manual').length, to: `presenca?dia=${eventDay.value}` },
+      { label: 'Credenciais ativas', value: activeCredentials.value.length, to: 'presenca?aba=credenciais' },
+      { label: `Presentes · Dia ${eventDay.value}`, value: dayPresent.value, to: `presenca?dia=${eventDay.value}` },
+      { label: 'Não registrados', value: dayMissing.value, to: `presenca?dia=${eventDay.value}` },
+      { label: 'Ocorrências abertas', value: openOcc.value, to: 'ocorrencias' },
     ],
   },
   {
@@ -126,8 +132,8 @@ const attention = computed(() => {
   if (broken) items.push({ tone: 'bad', text: plural(broken, 'equipamento com problema', 'equipamentos com problema'), to: 'setores?setor=Tecnologia' })
   if (otherOcc) items.push({ tone: 'warn', text: plural(otherOcc, 'ocorrência aberta', 'ocorrências abertas'), to: 'ocorrencias' })
   if (openTasks.value) items.push({ tone: 'warn', text: `${plural(openTasks.value, 'pendência precisa', 'pendências precisam')} de atenção`, to: 'pendencias' })
-  const missing = state.students.length - dayRecords.value.length
-  if (dayStarted.value && missing) items.push({ tone: 'warn', text: `${plural(missing, 'participante', 'participantes')} sem presença no Dia ${eventDay.value}`, to: `presenca?dia=${eventDay.value}` })
+  if (dayStarted.value && dayMissing.value) items.push({ tone: 'warn', text: `${plural(dayMissing.value, 'pessoa', 'pessoas')} ainda sem presença no Dia ${eventDay.value}`, to: `presenca?dia=${eventDay.value}` })
+  if (blockedCredentials.value) items.push({ tone: 'warn', text: plural(blockedCredentials.value, 'credencial bloqueada', 'credenciais bloqueadas'), to: 'presenca?aba=credenciais' })
   if (withoutTeam.value) items.push({ tone: 'warn', text: `${plural(withoutTeam.value, 'participante', 'participantes')} sem equipe`, to: 'equipes' })
   if (state.teams.length && state.evaluations.length === 0) items.push({ tone: 'info', text: 'Avaliações ainda não iniciadas', to: 'avaliacoes' })
   return items.filter((item) => allowed(item.to)).sort((x, y) => RANK[x.tone] - RANK[y.tone])

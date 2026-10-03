@@ -1,6 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { TICKET_STATUS, presenceOf, teamName, ticketCode, ticketStatus, uid } from '../model'
+import { isSuperAdmin } from '../access'
+import {
+  CREDENTIAL_CATEGORIES, CREDENTIAL_STATUS, EVENT_DAYS, checkCredential, credentialOf, credentialPeople,
+  findCredential, personOf, presenceOf, suggestedDays, uid,
+} from '../model'
 import { go, useHack } from '../store'
 import Badge from '../components/Badge.vue'
 import Drawer from '../components/Drawer.vue'
@@ -10,270 +14,403 @@ import Modal from '../components/Modal.vue'
 import Page from '../components/Page.vue'
 import Tabs from '../components/Tabs.vue'
 
-const DAY_TABS = [{ id: '1', label: 'Dia 1' }, { id: '2', label: 'Dia 2' }, { id: '3', label: 'Dia 3' }]
-const MANUAL_REASONS = ['QR Code indisponível', 'Problema de conexão', 'Ingresso não localizado', 'Outro']
+const DAY_TABS = EVENT_DAYS.map((day) => ({ id: String(day), label: `Dia ${day}` }))
+const MANUAL_REASONS = ['QR ilegível', 'Credencial não disponível', 'Problema técnico', 'Outro']
+const STATUS_TONE = { Ativa: 'ok', Bloqueada: 'warn', Cancelada: 'danger' }
 
 const props = defineProps({
   params: { type: Object, default: () => ({}) },
 })
 
 const { state, update, flash } = useHack()
-const day = computed(() => ([1, 2, 3].includes(Number(props.params.dia)) ? Number(props.params.dia) : 1))
+// Só o SuperAdmin gerencia credenciais; Validador e Consultor operam validação e presença.
+const manage = computed(() => isSuperAdmin(state.session))
+const validator = computed(() => state.session?.profile === 'Validador')
+const day = computed(() => (EVENT_DAYS.includes(Number(props.params.dia)) ? Number(props.params.dia) : 1))
+const tab = computed(() => (props.params.aba === 'credenciais' && !validator.value ? 'credenciais' : 'presenca'))
+const sectionTabs = computed(() => [{ id: 'presenca', label: 'Presença' }, ...(validator.value ? [] : [{ id: 'credenciais', label: 'Credenciais' }])])
+
 const query = ref('')
+const category = ref('')
+const status = ref('')
+const authorized = ref('')
 const scan = ref(null)
 const scanCode = ref('')
 const manual = ref(null)
-const ticketId = ref(null)
+const detailId = ref(null)
+const form = ref(null)
 
 function now() {
   return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function teamOf(studentId) {
-  return state.teams.find((team) => (team.members || []).includes(studentId))
+function link(next) {
+  const merged = { dia: day.value, aba: tab.value, ...next }
+  go(`presenca?dia=${merged.dia}&aba=${merged.aba}`)
 }
 
-function teamLabel(studentId) {
-  const team = teamOf(studentId)
-  return team ? teamName(team.id) : 'Sem equipe'
+function daysLabel(days) {
+  const list = [...(days || [])].sort()
+  if (list.length === EVENT_DAYS.length) return 'Dias 1, 2 e 3'
+  if (!list.length) return 'Nenhum dia'
+  return list.length === 1 ? `Dia ${list[0]}` : `Dias ${list.join(' e ')}`
 }
 
-const rows = computed(() => {
-  const term = query.value.trim().toLowerCase()
-  return state.students
-    .map((student) => ({ student, code: ticketCode(student), ticket: ticketStatus(student), record: presenceOf(state, student.id, day.value) }))
-    .filter((row) => !term || `${row.student.name} ${row.student.turma} ${row.code}`.toLowerCase().includes(term))
-})
-const dayRecords = computed(() => state.students.map((student) => presenceOf(state, student.id, day.value)).filter(Boolean))
-const summary = computed(() => ({
-  present: dayRecords.value.length,
-  missing: state.students.length - dayRecords.value.length,
-  manual: dayRecords.value.filter((item) => item.method === 'Manual').length,
-  qr: dayRecords.value.filter((item) => item.method === 'QR Code').length,
+const rows = computed(() => (state.credentials || []).map((credential) => {
+  const person = personOf(state, credential.personId)
+  return { credential, person, name: person?.name || 'Pessoa removida', record: presenceOf(state, credential.personId, day.value) }
 }))
-const ticketStudent = computed(() => state.students.find((item) => item.id === ticketId.value))
 
-function setDay(value) {
-  go(`presenca?dia=${value}`)
+function matches(row) {
+  const term = query.value.trim().toLowerCase()
+  if (term && !`${row.name} ${row.credential.code}`.toLowerCase().includes(term)) return false
+  return !category.value || row.credential.category === category.value
 }
 
-function register(student, method, extra = {}) {
-  const currentDay = day.value
-  update((draft) => {
-    draft.checkins.push({
-      id: uid('ck'),
-      personId: student.id,
-      personName: student.name,
-      category: 'Participante',
-      turma: student.turma,
-      day: currentDay,
-      method,
-      time: now(),
-      responsible: state.session?.name,
-      status: 'Presente',
-      note: '',
-      ...extra,
-    })
-  })
-}
+const credentialRows = computed(() => rows.value
+  .filter(matches)
+  .filter((row) => !status.value || row.credential.status === status.value)
+  .filter((row) => !authorized.value || row.credential.days.includes(Number(authorized.value))))
+// Presença do dia: credenciais autorizadas para o dia selecionado.
+const dayRows = computed(() => rows.value.filter((row) => row.credential.days.includes(day.value)))
+const presenceRows = computed(() => dayRows.value.filter(matches))
+const summary = computed(() => {
+  const expected = dayRows.value.filter((row) => row.credential.status === 'Ativa' && (!category.value || row.credential.category === category.value))
+  const present = dayRows.value.filter((row) => row.record && (!category.value || row.credential.category === category.value))
+  return {
+    present: present.length,
+    missing: expected.filter((row) => !row.record).length,
+    manual: present.filter((row) => row.record.method === 'Manual').length,
+    qr: present.filter((row) => row.record.method === 'QR Code').length,
+  }
+})
+const detail = computed(() => rows.value.find((row) => row.credential.id === detailId.value) || null)
 
-// Leitura demonstrativa: QR Code → ingresso → participante → status → presença do dia.
-function check(student) {
-  if (!student) return { kind: 'missing' }
-  const status = ticketStatus(student)
-  if (status !== 'Ativo') return { kind: 'blocked', student, status }
-  if (presenceOf(state, student.id, day.value)) return { kind: 'already', student }
-  return { kind: 'valid', student }
-}
-
+// Validação demonstrativa: QR → credencial → status → dia autorizado → duplicidade → presença.
 function openScan() {
   scan.value = { kind: 'idle' }
   scanCode.value = ''
 }
 
 function simulateRead() {
-  const code = scanCode.value.trim().toUpperCase()
+  const code = scanCode.value.trim()
   if (code) {
-    scan.value = check(state.students.find((student) => ticketCode(student) === code))
+    scan.value = checkCredential(state, findCredential(state, code), day.value)
     return
   }
-  const next = state.students.find((student) => ticketStatus(student) === 'Ativo' && !presenceOf(state, student.id, day.value))
-  scan.value = next ? check(next) : { kind: 'none' }
+  const next = rows.value.find((row) => checkCredential(state, row.credential, day.value).kind === 'valid')
+  scan.value = next ? checkCredential(state, next.credential, day.value) : { kind: 'none' }
+}
+
+function register(credential, method, extra = {}) {
+  const person = personOf(state, credential.personId)
+  const targetDay = extra.day || day.value
+  update((draft) => {
+    draft.checkins.push({
+      id: uid('ck'),
+      personId: credential.personId,
+      credentialId: credential.id,
+      personName: person?.name || '',
+      category: credential.category,
+      day: targetDay,
+      method,
+      time: extra.time || now(),
+      responsible: state.session?.name,
+      status: 'Presente',
+      note: extra.note || '',
+    })
+  })
 }
 
 function confirmScan() {
-  const student = scan.value?.student
-  if (!student) return
-  if (presenceOf(state, student.id, day.value)) {
-    scan.value = { kind: 'already', student }
+  const credential = scan.value?.credential
+  const result = checkCredential(state, credential, day.value)
+  if (result.kind !== 'valid') {
+    scan.value = result
     return
   }
-  register(student, 'QR Code', { note: 'Leitura demonstrativa' })
+  register(credential, 'QR Code', { note: 'Leitura demonstrativa' })
   flash(`Presença registrada no Dia ${day.value}.`)
   scan.value = null
 }
 
-function openManual(student = null) {
-  manual.value = { personId: student?.id || '', day: day.value, time: now(), reason: MANUAL_REASONS[0], note: '' }
+function searchInstead() {
+  scan.value = null
+  query.value = scanCode.value.trim()
+  link({ aba: 'presenca' })
+}
+
+function openManual(credential = null) {
+  manual.value = { credentialId: credential?.id || '', day: day.value, time: now(), reason: MANUAL_REASONS[0], note: '', error: '' }
 }
 
 function saveManual() {
-  const form = manual.value
-  const student = state.students.find((item) => item.id === form.personId)
-  if (!student) {
-    flash('Selecione um participante.', 'err')
+  const current = manual.value
+  const credential = (state.credentials || []).find((item) => item.id === current.credentialId)
+  if (!credential) {
+    current.error = 'Selecione a pessoa ou credencial.'
     return
   }
-  if (ticketStatus(student) !== 'Ativo') {
-    flash(`Ingresso ${ticketStatus(student).toLowerCase()}: presença não registrada.`, 'err')
+  const result = checkCredential(state, credential, current.day)
+  const messages = {
+    blocked: 'Esta credencial está bloqueada.',
+    cancelled: 'Esta credencial foi cancelada.',
+    day: `Esta credencial não possui acesso ao Dia ${current.day}.`,
+    already: `Presença já registrada no Dia ${current.day}.`,
+  }
+  if (result.kind !== 'valid') {
+    current.error = messages[result.kind]
     return
   }
-  if (presenceOf(state, student.id, form.day)) {
-    flash(`Presença já registrada para este participante no Dia ${form.day}.`, 'err')
-    return
-  }
-  const targetDay = Number(form.day)
-  update((draft) => {
-    draft.checkins.push({
-      id: uid('ck'),
-      personId: student.id,
-      personName: student.name,
-      category: 'Participante',
-      turma: student.turma,
-      day: targetDay,
-      method: 'Manual',
-      time: form.time,
-      responsible: state.session?.name,
-      status: 'Presente',
-      note: [form.reason, form.note].filter(Boolean).join('. '),
-    })
-  })
+  register(credential, 'Manual', { day: Number(current.day), time: current.time, note: [current.reason, current.note].filter(Boolean).join('. ') })
+  flash(`Presença registrada manualmente no Dia ${current.day}.`)
   manual.value = null
-  flash(`Presença registrada manualmente no Dia ${targetDay}.`)
-  if (targetDay !== day.value) setDay(targetDay)
+  if (Number(current.day) !== day.value) link({ dia: current.day })
 }
 
-function setTicketStatus(value) {
-  const id = ticketId.value
+// Nova credencial: associa uma pessoa já existente ou cadastra pessoa externa sem conta.
+const availablePeople = computed(() => credentialPeople(state).filter((person) => !credentialOf(state, person.id)))
+
+function openNew() {
+  form.value = { mode: 'existente', personId: '', name: '', email: '', category: 'Convidado', days: suggestedDays('Convidado'), status: 'Ativa', note: '', error: '' }
+}
+
+function openEdit(credential) {
+  form.value = { id: credential.id, mode: 'edicao', personId: credential.personId, category: credential.category, days: [...credential.days], status: credential.status, note: credential.note || '', error: '' }
+  detailId.value = null
+}
+
+function pickPerson(id) {
+  const person = availablePeople.value.find((item) => item.id === id)
+  form.value.personId = id
+  if (person) {
+    form.value.category = person.category
+    form.value.days = suggestedDays(person.category)
+  }
+}
+
+function setCategory(value) {
+  form.value.category = value
+  if (!form.value.id) form.value.days = suggestedDays(value)
+}
+
+function toggleDay(value) {
+  const days = form.value.days
+  form.value.days = days.includes(value) ? days.filter((item) => item !== value) : [...days, value].sort()
+}
+
+function saveCredential() {
+  const current = form.value
+  if (current.mode === 'existente' && !current.personId) return (current.error = 'Selecione a pessoa.')
+  if (current.mode === 'externa' && !current.name.trim()) return (current.error = 'Informe o nome da pessoa.')
+  if (!current.days.length) return (current.error = 'Autorize pelo menos um dia.')
+  const fields = { category: current.category, days: [...current.days].sort(), status: current.status, note: current.note }
   update((draft) => {
-    const current = draft.students.find((item) => item.id === id)
-    if (current) current.ticketStatus = value
+    if (current.id) {
+      Object.assign(draft.credentials.find((item) => item.id === current.id), fields)
+      return
+    }
+    let personId = current.personId
+    if (current.mode === 'externa') {
+      personId = uid('gst')
+      draft.guests.push({ id: personId, name: current.name.trim(), email: current.email.trim(), category: current.category })
+    }
+    const top = draft.credentials.reduce((max, item) => Math.max(max, Number(String(item.code).replace(/\D/g, '')) || 0), 0)
+    draft.credentials.push({ id: uid('cred'), code: `HL-${String(top + 1).padStart(6, '0')}`, personId, ...fields, createdAt: new Date().toLocaleDateString('pt-BR') })
   })
-  flash(`Ingresso ${value.toLowerCase()}.`)
+  flash(current.id ? 'Credencial atualizada.' : 'Credencial criada.')
+  form.value = null
+}
+
+function setStatus(credential, value) {
+  update((draft) => { draft.credentials.find((item) => item.id === credential.id).status = value })
+  flash(`Credencial ${value.toLowerCase()}.`)
 }
 </script>
 
 <template>
-  <Page title="Credenciais e Presença" subtitle="Gerencie as credenciais e registre a presença dos participantes durante os dias do Hackathon.">
+  <Page title="Credenciais e Presença" subtitle="Gerencie as credenciais e registre a presença das pessoas durante o Hackathon.">
     <template #actions>
-      <button class="btn ghost" type="button" @click="openManual()">Registrar presença manualmente</button>
+      <button class="btn ghost" type="button" @click="openManual()">Registrar manualmente</button>
       <button class="btn" type="button" @click="openScan">Validar QR Code</button>
     </template>
 
+    <Tabs v-if="sectionTabs.length > 1" class="attendance-sections" :tabs="sectionTabs" :model-value="tab" @update:model-value="(value) => link({ aba: value })" />
+
     <div class="attendance-bar">
-      <Tabs :tabs="DAY_TABS" :model-value="String(day)" @update:model-value="setDay" />
-      <input v-model="query" class="input attendance-search" placeholder="Buscar participante ou ingresso" aria-label="Buscar participante ou ingresso" />
-    </div>
-    <p class="attendance-summary" aria-live="polite">
-      <b>Dia {{ day }}</b>
-      <span>Presentes <b>{{ summary.present }}</b></span>
-      <span>Não registrados <b>{{ summary.missing }}</b></span>
-      <span>QR Code <b>{{ summary.qr }}</b></span>
-      <span>Registros manuais <b>{{ summary.manual }}</b></span>
-    </p>
-
-    <div class="table-wrap attendance-table-wrap">
-      <table class="attendance-table">
-        <thead><tr><th>Participante</th><th>Turma</th><th>Equipe</th><th>Ingresso</th><th>Presença</th><th>Método</th><th>Ações</th></tr></thead>
-        <tbody>
-          <tr v-if="rows.length === 0">
-            <td colspan="7"><Empty :title="state.students.length ? 'Nenhum participante encontrado.' : 'Nenhum participante cadastrado.'" :text="state.students.length ? 'Revise a busca.' : 'Os ingressos são gerados a partir do cadastro em Preparação → Participantes.'" /></td>
-          </tr>
-          <tr v-for="row in rows" :key="row.student.id">
-            <td>{{ row.student.name }}</td>
-            <td>{{ row.student.turma || '—' }}</td>
-            <td>{{ teamLabel(row.student.id) }}</td>
-            <td><span class="ticket-code">{{ row.code }}</span> <Badge v-if="row.ticket !== 'Ativo'" :tone="row.ticket === 'Cancelado' ? 'danger' : 'warn'">{{ row.ticket }}</Badge></td>
-            <td><Badge :tone="row.record ? 'ok' : ''">{{ row.record ? `Presente · ${row.record.time || '—'}` : 'Não registrado' }}</Badge></td>
-            <td>{{ row.record?.method || '—' }}</td>
-            <td>
-              <div class="row-actions">
-                <button class="btn ghost small" type="button" @click="ticketId = row.student.id">Ver ingresso</button>
-                <button v-if="!row.record && row.ticket === 'Ativo'" class="btn ghost small" type="button" @click="openManual(row.student)">Registrar</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <Tabs v-if="tab === 'presenca'" :tabs="DAY_TABS" :model-value="String(day)" @update:model-value="(value) => link({ dia: value })" />
+      <input v-model="query" class="input attendance-search" placeholder="Buscar por nome ou código da credencial" aria-label="Buscar por nome ou código da credencial" />
+      <select v-model="category" class="input attendance-filter" aria-label="Categoria">
+        <option value="">Todas as categorias</option>
+        <option v-for="item in CREDENTIAL_CATEGORIES" :key="item">{{ item }}</option>
+      </select>
+      <template v-if="tab === 'credenciais'">
+        <select v-model="status" class="input attendance-filter" aria-label="Status">
+          <option value="">Todos os status</option>
+          <option v-for="item in CREDENTIAL_STATUS" :key="item">{{ item }}</option>
+        </select>
+        <select v-model="authorized" class="input attendance-filter" aria-label="Dia autorizado">
+          <option value="">Qualquer dia</option>
+          <option v-for="item in EVENT_DAYS" :key="item" :value="String(item)">Autorizado no Dia {{ item }}</option>
+        </select>
+        <button v-if="manage" class="btn" type="button" @click="openNew">+ Nova credencial</button>
+      </template>
     </div>
 
-    <!-- Celular: registros em cards, sem tabela espremida. -->
-    <ul class="attendance-cards">
-      <li v-if="rows.length === 0" class="card">{{ state.students.length ? 'Nenhum participante encontrado.' : 'Nenhum participante cadastrado.' }}</li>
-      <li v-for="row in rows" :key="row.student.id" class="card attendance-card">
-        <div class="attendance-card-head">
-          <b>{{ row.student.name }}</b>
-          <Badge :tone="row.record ? 'ok' : ''">{{ row.record ? 'Presente' : 'Não registrado' }}</Badge>
-        </div>
-        <p>{{ teamLabel(row.student.id) }} · Turma {{ row.student.turma || '—' }}</p>
-        <p><span class="ticket-code">{{ row.code }}</span> · Ingresso {{ row.ticket.toLowerCase() }}<template v-if="row.record"> · {{ row.record.method }} {{ row.record.time }}</template></p>
-        <div class="attendance-card-actions">
-          <button class="btn ghost" type="button" @click="ticketId = row.student.id">Ver ingresso</button>
-          <button v-if="!row.record && row.ticket === 'Ativo'" class="btn ghost" type="button" @click="openManual(row.student)">Registrar</button>
-        </div>
-      </li>
-    </ul>
+    <template v-if="!(state.credentials || []).length">
+      <Empty v-if="manage" title="Nenhuma credencial cadastrada." text="Crie ou associe uma credencial para começar o controle de acesso." />
+      <Empty v-else title="Nenhuma credencial disponível para validação." />
+      <button v-if="manage" class="btn" type="button" @click="openNew">+ Nova credencial</button>
+    </template>
 
-    <Modal v-if="scan" title="Validar ingresso" :subtitle="`Registro de presença do Dia ${day}. Leitura demonstrativa, sem câmera real.`" @close="scan = null">
+    <template v-else-if="tab === 'presenca'">
+      <p class="attendance-summary" aria-live="polite">
+        <b>Dia {{ day }}</b>
+        <span>Presentes <b>{{ summary.present }}</b></span>
+        <span>Não registrados <b>{{ summary.missing }}</b></span>
+        <span>QR Code <b>{{ summary.qr }}</b></span>
+        <span>Manuais <b>{{ summary.manual }}</b></span>
+      </p>
+      <div class="table-wrap attendance-table-wrap">
+        <table class="attendance-table">
+          <thead><tr><th>Pessoa</th><th>Categoria</th><th>Credencial</th><th>Presença</th><th>Método</th><th>Horário</th><th>Ações</th></tr></thead>
+          <tbody>
+            <tr v-if="presenceRows.length === 0"><td colspan="7"><Empty :title="`Nenhuma credencial autorizada para o Dia ${day}${query || category ? ' com estes filtros' : ''}.`" /></td></tr>
+            <tr v-for="row in presenceRows" :key="row.credential.id">
+              <td>{{ row.name }}</td>
+              <td>{{ row.credential.category }}</td>
+              <td><span class="ticket-code">{{ row.credential.code }}</span> <Badge v-if="row.credential.status !== 'Ativa'" :tone="STATUS_TONE[row.credential.status]">{{ row.credential.status }}</Badge></td>
+              <td><Badge :tone="row.record ? 'ok' : ''">{{ row.record ? 'Presente' : 'Não registrado' }}</Badge></td>
+              <td>{{ row.record?.method || '—' }}</td>
+              <td>{{ row.record?.time || '—' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn ghost small" type="button" @click="detailId = row.credential.id">Ver credencial</button>
+                  <button v-if="!row.record && row.credential.status === 'Ativa'" class="btn ghost small" type="button" @click="openManual(row.credential)">Registrar</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="attendance-cards">
+        <li v-if="presenceRows.length === 0" class="card">Nenhuma credencial autorizada para o Dia {{ day }}.</li>
+        <li v-for="row in presenceRows" :key="row.credential.id" class="card attendance-card">
+          <div class="attendance-card-head">
+            <b>{{ row.name }}</b>
+            <Badge :tone="row.record ? 'ok' : ''">{{ row.record ? '✓ Presente' : 'Não registrado' }}</Badge>
+          </div>
+          <p>{{ row.credential.category }} · <span class="ticket-code">{{ row.credential.code }}</span><template v-if="row.credential.status !== 'Ativa'"> · {{ row.credential.status }}</template></p>
+          <p v-if="row.record">{{ row.record.time }} · {{ row.record.method }}</p>
+          <div class="attendance-card-actions">
+            <button class="btn ghost" type="button" @click="detailId = row.credential.id">Ver credencial</button>
+            <button v-if="!row.record && row.credential.status === 'Ativa'" class="btn ghost" type="button" @click="openManual(row.credential)">Registrar</button>
+          </div>
+        </li>
+      </ul>
+    </template>
+
+    <template v-else>
+      <div class="table-wrap attendance-table-wrap">
+        <table class="attendance-table">
+          <thead><tr><th>Pessoa</th><th>Categoria</th><th>Credencial</th><th>Dias</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            <tr v-if="credentialRows.length === 0"><td colspan="6"><Empty title="Nenhuma credencial para estes filtros." /></td></tr>
+            <tr v-for="row in credentialRows" :key="row.credential.id">
+              <td>{{ row.name }}<br /><small class="stat-hint">{{ row.person?.kind || '—' }}</small></td>
+              <td>{{ row.credential.category }}</td>
+              <td><span class="ticket-code">{{ row.credential.code }}</span></td>
+              <td>{{ daysLabel(row.credential.days) }}</td>
+              <td><Badge :tone="STATUS_TONE[row.credential.status]">{{ row.credential.status }}</Badge></td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn ghost small" type="button" @click="detailId = row.credential.id">Ver</button>
+                  <button v-if="manage" class="btn ghost small" type="button" @click="openEdit(row.credential)">Editar</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="attendance-cards">
+        <li v-for="row in credentialRows" :key="row.credential.id" class="card attendance-card">
+          <div class="attendance-card-head">
+            <b>{{ row.name }}</b>
+            <Badge :tone="STATUS_TONE[row.credential.status]">{{ row.credential.status }}</Badge>
+          </div>
+          <p>{{ row.credential.category }} · <span class="ticket-code">{{ row.credential.code }}</span></p>
+          <p>{{ daysLabel(row.credential.days) }}</p>
+          <div class="attendance-card-actions">
+            <button class="btn ghost" type="button" @click="detailId = row.credential.id">Ver credencial</button>
+            <button v-if="manage" class="btn ghost" type="button" @click="openEdit(row.credential)">Editar</button>
+          </div>
+        </li>
+      </ul>
+    </template>
+
+    <Modal v-if="scan" title="Validar credencial" :subtitle="`Presença do Dia ${day}. Leitura demonstrativa, sem câmera real.`" @close="scan = null">
       <div class="scan-area">
         <div class="qr" aria-hidden="true" />
-        <p>Área demonstrativa de leitura do QR Code.</p>
-        <Field label="Código do ingresso (opcional)" hint="Sem código, a leitura simula o próximo ingresso ativo sem presença no dia.">
-          <input v-model="scanCode" class="input" placeholder="HL-00001" @keydown.enter="simulateRead" />
+        <p>Área demonstrativa de leitura do QR Code da credencial.</p>
+        <Field label="Código da credencial (opcional)" hint="Sem código, a leitura simula a próxima credencial válida para o dia.">
+          <input v-model="scanCode" class="input" placeholder="HL-000001" @keydown.enter="simulateRead" />
         </Field>
         <button class="btn" type="button" @click="simulateRead">Simular leitura</button>
       </div>
       <div v-if="scan.kind === 'valid'" class="banner ok scan-result">
         <div>
-          <b>Ingresso válido</b>
+          <b>Credencial válida</b>
           <dl class="scan-facts">
-            <dt>Participante</dt><dd>{{ scan.student.name }}</dd>
-            <dt>Ingresso</dt><dd>{{ ticketCode(scan.student) }}</dd>
-            <dt>Turma</dt><dd>{{ scan.student.turma || '—' }}</dd>
-            <dt>Equipe</dt><dd>{{ teamLabel(scan.student.id) }}</dd>
-            <dt>Dia</dt><dd>Dia {{ day }}</dd>
+            <dt>Pessoa</dt><dd>{{ personOf(state, scan.credential.personId)?.name }}</dd>
+            <dt>Categoria</dt><dd>{{ scan.credential.category }}</dd>
+            <dt>Credencial</dt><dd>{{ scan.credential.code }}</dd>
+            <dt>Dia {{ day }}</dt><dd>Acesso autorizado</dd>
           </dl>
         </div>
       </div>
       <div v-else-if="scan.kind === 'already'" class="banner warn scan-result">
-        <div><b>Presença já registrada</b><p>Presença já registrada para {{ scan.student.name }} ({{ ticketCode(scan.student) }}) no Dia {{ day }}.</p></div>
+        <div>
+          <b>Presença já registrada</b>
+          <p>{{ personOf(state, scan.credential.personId)?.name }} · Dia {{ scan.record.day }} · {{ scan.record.time || '—' }} · {{ scan.record.method }}</p>
+        </div>
+      </div>
+      <div v-else-if="scan.kind === 'day'" class="banner warn scan-result">
+        <div><b>Acesso não autorizado para este dia</b><p>Esta credencial não possui acesso ao Dia {{ day }}.</p></div>
       </div>
       <div v-else-if="scan.kind === 'blocked'" class="banner warn scan-result">
-        <div><b>Ingresso indisponível</b><p>O ingresso {{ ticketCode(scan.student) }} de {{ scan.student.name }} está {{ scan.status.toLowerCase() }}. A presença não pode ser registrada.</p></div>
+        <div><b>Credencial bloqueada</b><p>Esta credencial está bloqueada.</p></div>
+      </div>
+      <div v-else-if="scan.kind === 'cancelled'" class="banner err scan-result">
+        <div><b>Credencial cancelada</b><p>Esta credencial foi cancelada.</p></div>
       </div>
       <div v-else-if="scan.kind === 'missing'" class="banner warn scan-result">
-        <div><b>Ingresso não encontrado</b><p>Nenhum participante possui o ingresso {{ scanCode.trim().toUpperCase() }}.</p></div>
+        <div>
+          <b>Credencial não encontrada</b>
+          <p>Nenhuma credencial com o código {{ scanCode.trim().toUpperCase() }}.</p>
+          <div class="row-actions"><button class="btn ghost small" type="button" @click="openScan">Tentar novamente</button><button class="btn ghost small" type="button" @click="searchInstead">Buscar pessoa</button></div>
+        </div>
       </div>
       <div v-else-if="scan.kind === 'none'" class="banner scan-result">
-        <div><b>Nenhum ingresso pendente</b><p>Todos os ingressos ativos já têm presença registrada no Dia {{ day }}.</p></div>
+        <div><b>Nenhuma credencial pendente</b><p>Todas as credenciais ativas autorizadas para o Dia {{ day }} já têm presença.</p></div>
       </div>
       <template #footer>
         <button class="btn ghost" type="button" @click="scan = null">Fechar</button>
-        <button v-if="scan.kind === 'valid'" class="btn" type="button" @click="confirmScan">Registrar presença</button>
+        <button v-if="scan.kind === 'valid'" class="btn" type="button" @click="confirmScan">Confirmar presença</button>
       </template>
     </Modal>
 
     <Modal v-if="manual" title="Registrar presença manualmente" subtitle="Use quando a leitura do QR Code não for possível." @close="manual = null">
-      <Field label="Participante" required>
-        <select v-model="manual.personId" class="input">
-          <option value="">Selecione o participante</option>
-          <option v-for="student in state.students" :key="student.id" :value="student.id" :disabled="ticketStatus(student) !== 'Ativo'">{{ student.name }} · {{ ticketCode(student) }}{{ ticketStatus(student) !== 'Ativo' ? ` · ingresso ${ticketStatus(student).toLowerCase()}` : '' }}</option>
+      <p v-if="manual.error" class="banner warn">{{ manual.error }}</p>
+      <Field label="Pessoa / credencial" required>
+        <select v-model="manual.credentialId" class="input" @change="manual.error = ''">
+          <option value="">Selecione</option>
+          <option v-for="row in rows" :key="row.credential.id" :value="row.credential.id">{{ row.name }} · {{ row.credential.code }} · {{ row.credential.category }}</option>
         </select>
       </Field>
       <div class="form-grid">
         <Field label="Dia">
-          <select v-model.number="manual.day" class="input">
-            <option v-for="item in [1, 2, 3]" :key="item" :value="item">Dia {{ item }}</option>
+          <select v-model.number="manual.day" class="input" @change="manual.error = ''">
+            <option v-for="item in EVENT_DAYS" :key="item" :value="item">Dia {{ item }}</option>
           </select>
         </Field>
         <Field label="Horário"><input v-model="manual.time" class="input" type="time" /></Field>
@@ -290,35 +427,82 @@ function setTicketStatus(value) {
       </template>
     </Modal>
 
-    <Drawer v-if="ticketStudent" title="Ingresso" :subtitle="`${ticketStudent.name} · válido nos três dias`" @close="ticketId = null">
-      <div class="ticket">
-        <div class="ticket-top"><b>HackLab</b><p>Ingresso de Participação</p></div>
-        <div class="ticket-body">
-          <p><b>{{ ticketStudent.name }}</b></p>
-          <p>Turma {{ ticketStudent.turma || '—' }} · {{ teamLabel(ticketStudent.id) }}</p>
-          <div class="qr" aria-hidden="true" />
-          <p class="ticket-code">{{ ticketCode(ticketStudent) }}</p>
-          <p class="stat-hint">QR Code demonstrativo. Um único ingresso vale para o Dia 1, o Dia 2 e o Dia 3.</p>
-        </div>
+    <Modal v-if="form" :title="form.id ? 'Editar credencial' : 'Nova credencial'" subtitle="Código e QR Code são gerados automaticamente." @close="form = null">
+      <p v-if="form.error" class="banner warn">{{ form.error }}</p>
+      <div v-if="!form.id" class="chips" role="group" aria-label="Pessoa">
+        <button type="button" class="chip" :class="{ on: form.mode === 'existente' }" @click="form.mode = 'existente'; form.error = ''">Pessoa já cadastrada</button>
+        <button type="button" class="chip" :class="{ on: form.mode === 'externa' }" @click="form.mode = 'externa'; form.error = ''; setCategory('Convidado')">Cadastrar pessoa externa</button>
       </div>
+      <Field v-if="form.id" label="Pessoa"><input class="input" :value="personOf(state, form.personId)?.name" disabled /></Field>
+      <Field v-else-if="form.mode === 'existente'" label="Pessoa" required hint="Somente pessoas que ainda não têm credencial.">
+        <select class="input" :value="form.personId" @change="pickPerson($event.target.value)">
+          <option value="">Selecione</option>
+          <option v-for="person in availablePeople" :key="person.id" :value="person.id">{{ person.name }} · {{ person.detail || person.kind }}</option>
+        </select>
+      </Field>
+      <template v-else>
+        <Field label="Nome" required><input v-model="form.name" class="input" /></Field>
+        <Field label="E-mail (opcional)" hint="A pessoa externa não recebe conta no sistema."><input v-model="form.email" class="input" type="email" /></Field>
+      </template>
+      <Field label="Categoria">
+        <select class="input" :value="form.category" @change="setCategory($event.target.value)">
+          <option v-for="item in CREDENTIAL_CATEGORIES" :key="item">{{ item }}</option>
+        </select>
+      </Field>
       <div class="field">
-        <span>Status do ingresso</span>
+        <span>Dias autorizados</span>
         <div class="chips">
-          <button v-for="item in TICKET_STATUS" :key="item" type="button" class="chip" :class="{ on: ticketStatus(ticketStudent) === item }" @click="setTicketStatus(item)">{{ item }}</button>
+          <label v-for="item in EVENT_DAYS" :key="item" class="check"><input type="checkbox" :checked="form.days.includes(item)" @change="toggleDay(item)" /> Dia {{ item }}</label>
         </div>
       </div>
-      <h3 class="ops-title">Presença</h3>
+      <Field label="Status">
+        <select v-model="form.status" class="input">
+          <option v-for="item in CREDENTIAL_STATUS" :key="item">{{ item }}</option>
+        </select>
+      </Field>
+      <Field label="Observação (opcional)"><input v-model="form.note" class="input" /></Field>
+      <template #footer>
+        <button class="btn ghost" type="button" @click="form = null">Cancelar</button>
+        <button class="btn" type="button" @click="saveCredential">{{ form.id ? 'Salvar alterações' : 'Criar credencial' }}</button>
+      </template>
+    </Modal>
+
+    <Drawer v-if="detail" title="Credencial" :subtitle="`${detail.name} · ${detail.credential.category}`" @close="detailId = null">
+      <div class="credential-card">
+        <div class="credential-head"><b>HackLab</b><span>Credencial do evento</span></div>
+        <div class="credential-body">
+          <p class="credential-name">{{ detail.name }}</p>
+          <p>{{ detail.credential.category }}</p>
+          <div class="qr" aria-hidden="true" />
+          <p class="ticket-code">{{ detail.credential.code }}</p>
+          <p>{{ daysLabel(detail.credential.days) }} · <Badge :tone="STATUS_TONE[detail.credential.status]">{{ detail.credential.status }}</Badge></p>
+          <p class="stat-hint">QR Code demonstrativo. Um único QR vale em todos os dias autorizados.</p>
+        </div>
+      </div>
+      <div v-if="manage" class="field">
+        <span>Status da credencial</span>
+        <div class="chips">
+          <button v-for="item in CREDENTIAL_STATUS" :key="item" type="button" class="chip" :class="{ on: detail.credential.status === item }" @click="setStatus(detail.credential, item)">{{ item }}</button>
+        </div>
+      </div>
+      <h3 class="ops-title">Histórico de presença</h3>
       <dl class="ticket-days">
-        <template v-for="item in [1, 2, 3]" :key="item">
+        <template v-for="item in EVENT_DAYS" :key="item">
           <dt>Dia {{ item }}</dt>
           <dd>
-            <Badge :tone="presenceOf(state, ticketStudent.id, item) ? 'ok' : ''">{{ presenceOf(state, ticketStudent.id, item) ? 'Presente' : 'Não registrado' }}</Badge>
-            <span v-if="presenceOf(state, ticketStudent.id, item)" class="stat-hint">{{ presenceOf(state, ticketStudent.id, item).method }} · {{ presenceOf(state, ticketStudent.id, item).time || '—' }}</span>
+            <template v-if="presenceOf(state, detail.credential.personId, item)">
+              <Badge tone="ok">Presente</Badge>
+              <span class="stat-hint">{{ presenceOf(state, detail.credential.personId, item).method }} · {{ presenceOf(state, detail.credential.personId, item).time || '—' }}</span>
+            </template>
+            <Badge v-else-if="!detail.credential.days.includes(item)">Não autorizado</Badge>
+            <Badge v-else>Não registrado</Badge>
           </dd>
         </template>
       </dl>
+      <p v-if="detail.credential.note" class="stat-hint">Observação: {{ detail.credential.note }}</p>
       <template #footer>
-        <button class="btn ghost" type="button" @click="ticketId = null">Fechar</button>
+        <button class="btn ghost" type="button" @click="detailId = null">Fechar</button>
+        <button v-if="manage" class="btn" type="button" @click="openEdit(detail.credential)">Editar</button>
       </template>
     </Drawer>
   </Page>

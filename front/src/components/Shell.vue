@@ -139,7 +139,7 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="tool">
-            <button class="a11y-btn" type="button" @click="panel = panel === 'a11y' ? '' : 'a11y'"><Icon name="access" :size="16" /> Acessibilidade</button>
+            <button class="a11y-btn" type="button" aria-label="Acessibilidade" @click="panel = panel === 'a11y' ? '' : 'a11y'"><Icon name="access" :size="16" /> <span class="a11y-label">Acessibilidade</span></button>
             <div v-if="panel === 'a11y'" class="popover" role="dialog" aria-label="Acessibilidade">
               <div class="row-between"><h3>Acessibilidade</h3><button class="icon-btn" type="button" aria-label="Fechar" title="Fechar" @click="panel = ''"><Icon name="x" :size="16" /></button></div>
               <Field label="Tamanho da fonte" hint="Aumentar ou diminuir o texto">

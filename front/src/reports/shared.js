@@ -1,4 +1,4 @@
-import { SETORES, TURMAS, activeMembers, companyOf, isAvailable, occurrenceCategory, occurrenceSector, occurrenceStatus, teamChallenge, teamName } from '../model'
+import { CREDENTIAL_CATEGORIES, SETORES, TURMAS, activeMembers, companyOf, isAvailable, occurrenceCategory, occurrenceSector, occurrenceStatus, teamChallenge, teamName } from '../model'
 
 // Leitura e formatação dos dados do protótipo para os relatórios em PDF.
 // Os builders só leem o estado; nada aqui altera a store.
@@ -124,6 +124,16 @@ export function peopleFacts(state) {
   const available = students.filter(isAvailable).length
   const withPresence = students.filter((item) => [1, 2, 3].some((day) => presenceOn(state, item.id, day) === 'Presente')).length
   return { total: students.length, available, unavailable: students.length - available, withPresence }
+}
+
+// Acesso e presença de todas as categorias de credencial (não só participantes).
+export function accessRows(state) {
+  const credentials = state.credentials || []
+  return CREDENTIAL_CATEGORIES.map((category) => {
+    const group = credentials.filter((item) => item.category === category)
+    const present = (day) => group.filter((item) => presenceOn(state, item.personId, day) === 'Presente').length
+    return [category, count(group.length), count(group.filter((item) => item.status === 'Ativa').length), count(present(1)), count(present(2)), count(present(3))]
+  }).filter((row) => row[1] !== '0')
 }
 
 // Equipes, empresas e desafios

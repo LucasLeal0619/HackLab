@@ -1,6 +1,6 @@
 import { inject, reactive, ref, toRaw, watch } from 'vue'
 import { homeFor, migrateProfile, profileConfig } from './access'
-import { ACCOUNTS, KEY, PUBLIC_CATEGORY, SETORES, buildDemo, defaultState, findInvite, isExternalProfile, normalizeTeams, seedUsers, uid } from './model'
+import { ACCOUNTS, KEY, PUBLIC_CATEGORY, SETORES, buildDemo, defaultState, findInvite, isExternalProfile, normalizeTeams, seedDemoCredentials, seedUsers, syncCredentials, uid } from './model'
 
 const STORE = 'hacklab'
 
@@ -34,11 +34,11 @@ function withSeedUsers(users) {
 function load() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return defaultState()
+    if (!raw) return syncCredentials(defaultState())
     const parsed = JSON.parse(raw)
     const base = defaultState()
     const hasWork = ['students', 'companies', 'meetings', 'judges'].some((key) => (parsed[key] || []).length)
-    return {
+    const loaded = {
       ...base,
       ...parsed,
       a11y: { ...base.a11y, ...(parsed.a11y || {}) },
@@ -61,8 +61,9 @@ function load() {
         meetings: parsed.meetings,
       })),
     }
+    return syncCredentials(loaded)
   } catch {
-    return defaultState()
+    return syncCredentials(defaultState())
   }
 }
 
@@ -122,6 +123,8 @@ export function createHackStore() {
         draft = JSON.parse(JSON.stringify(state))
       }
       fn(draft)
+      // Participantes, contas e cadastros públicos novos recebem credencial automaticamente.
+      syncCredentials(draft)
       replaceState(state, draft)
     },
     flash(text, type = 'ok') {
@@ -234,7 +237,7 @@ export function createHackStore() {
       store.flash('Acessibilidade restaurada ao padrão.')
     },
     loadDemo() {
-      replaceState(state, buildDemo(structuredClone(toRaw(state))))
+      replaceState(state, seedDemoCredentials(buildDemo(structuredClone(toRaw(state)))))
       store.flash('Dados demonstrativos carregados neste navegador.')
     },
     resetAll() {
@@ -242,7 +245,7 @@ export function createHackStore() {
       // Conta externa criada no protótipo deixa de existir: a sessão dela também é encerrada.
       fresh.session = state.session?.external ? null : state.session
       fresh.a11y = state.a11y
-      replaceState(state, fresh)
+      replaceState(state, syncCredentials(fresh))
       localStorage.removeItem('hacklab.vote.cast')
       store.flash(fresh.session ? 'Dados do protótipo limpos. A sessão foi mantida.' : 'Dados do protótipo limpos.')
       if (!fresh.session) go('login')
