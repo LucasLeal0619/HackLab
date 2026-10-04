@@ -1,3 +1,5 @@
+import logoNavyUrl from '@/assets/senac-logo-navy.png'
+import logoWhiteUrl from '@/assets/senac-logo-white.png'
 import { buildDocument } from '@/js/services/reports/document'
 import { eventInfo, stamp } from '@/js/services/reports/shared'
 import { buildClosingReportData } from './templates/closing'
@@ -43,7 +45,7 @@ async function asDataUrl(url) {
 }
 
 function logos() {
-  logosPromise ||= Promise.all([asDataUrl('/senac-logo-white.png?v=3'), asDataUrl('/senac-logo-navy.png?v=3')])
+  logosPromise ||= Promise.all([asDataUrl(logoWhiteUrl), asDataUrl(logoNavyUrl)])
   return logosPromise
 }
 

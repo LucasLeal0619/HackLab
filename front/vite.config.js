@@ -3,6 +3,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
+  // Caminhos relativos no build: o app abre também a partir de uma subpasta.
+  base: './',
   plugins: [vue()],
   resolve: {
     // @/ aponta para src/ (ex.: '@/js/data/model').
