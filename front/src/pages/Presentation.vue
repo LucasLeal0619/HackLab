@@ -2,7 +2,7 @@
 import Logo from '../components/Logo.vue'
 import { usePresentation } from '@/js/pages/presentation'
 
-const { PRESENT_STEPS, state, step, technical, totalVotes, current, votedRows, goStep, teamName, go } = usePresentation()
+const { PRESENT_STEPS, state, step, totalVotes, current, currentTeam, currentAward, goStep, teamName, go } = usePresentation()
 </script>
 
 <template>
@@ -12,46 +12,55 @@ const { PRESENT_STEPS, state, step, technical, totalVotes, current, votedRows, g
       <button class="btn ghost present-exit" type="button" @click="go('painel')">Sair do modo apresentação</button>
     </div>
     <div class="present-stage">
-      <div v-if="current === 'abertura'">
+      <div v-if="current.type === 'abertura'">
         <h1>Resultados HackLab</h1>
         <p>Apresentação dos resultados do Hackathon.</p>
       </div>
-      <div v-if="current === 'jurados'" class="present-block">
-        <h1>Resultado dos Jurados</h1>
+      <div v-else-if="current.type === 'equipe'" class="present-block">
         <p v-if="!state.resultsReleased">Resultados ainda não divulgados</p>
-        <p v-else-if="technical.length === 0">Ainda não há resultado técnico registrado.</p>
-        <div v-else class="present-cards">
-          <article v-for="item in technical" :key="item.team.id" class="present-card">
-            <h3>{{ teamName(item.team.id) }}</h3>
-            <p>{{ item.company?.name || '—' }} · {{ item.challenge?.title || '—' }}</p>
-            <p>Resultado técnico {{ item.avg.toFixed(1) }}</p>
-          </article>
-        </div>
+        <template v-else-if="currentTeam">
+          <p class="present-eyebrow">Resultados da equipe</p>
+          <h1 class="present-team-name">{{ teamName(currentTeam.team.id) }}</h1>
+          <p class="present-challenge">
+            Desafio proposto: {{ currentTeam.challenge?.title || 'Não informado' }}
+            <span v-if="currentTeam.company?.name"> · {{ currentTeam.company.name }}</span>
+          </p>
+          <div class="present-result-grid">
+            <article class="present-result">
+              <h2>Votação dos Jurados</h2>
+              <p v-if="currentTeam.avg == null">Ainda não há resultado técnico registrado.</p>
+              <p v-else class="present-result-value">{{ currentTeam.avg.toFixed(1) }}</p>
+              <p v-if="currentTeam.avg != null" class="present-result-caption">Resultado técnico</p>
+            </article>
+            <article class="present-result">
+              <h2>Votação do Público</h2>
+              <p v-if="totalVotes === 0">Nenhum voto registrado.</p>
+              <template v-else>
+                <p class="present-result-value">{{ currentTeam.votes }}</p>
+                <p class="present-result-caption">
+                  voto(s) · {{ Math.round((currentTeam.votes / totalVotes) * 100) }}% do total
+                </p>
+              </template>
+            </article>
+          </div>
+        </template>
+        <p v-else>Equipe não encontrada.</p>
       </div>
-      <div v-if="current === 'publico'" class="present-block">
-        <h1>Resultado da Votação do Público</h1>
-        <p v-if="!state.resultsReleased">Resultados ainda não divulgados</p>
-        <p v-else-if="totalVotes === 0">Nenhum voto registrado.</p>
-        <div v-else class="present-cards">
-          <article v-for="item in votedRows" :key="item.team.id" class="present-card">
-            <h3>{{ teamName(item.team.id) }}</h3>
-            <p>{{ item.votes }} voto(s)</p>
-            <p>{{ Math.round((item.votes / totalVotes) * 100) }}%</p>
-          </article>
-        </div>
+      <div
+        v-else-if="current.type === 'premiacao'"
+        class="present-block present-award-slide"
+        :class="`present-award-slide--${current.awardIndex + 1}`"
+      >
+        <p class="present-eyebrow">Premiação</p>
+        <h1>{{ ['1º LUGAR', '2º LUGAR', '3º LUGAR'][current.awardIndex] }}</h1>
+        <article class="present-award">
+          <h2>{{ currentAward?.name || 'Premiação a definir' }}</h2>
+          <p class="present-award-team">{{ currentAward?.team || 'Equipe a definir' }}</p>
+          <p v-if="currentAward?.description">{{ currentAward.description }}</p>
+          <p v-if="!currentAward">Esta colocação ainda não possui premiação cadastrada.</p>
+        </article>
       </div>
-      <div v-if="current === 'premiacao'" class="present-block">
-        <h1>Premiação</h1>
-        <p v-if="state.awards.length === 0">A definir</p>
-        <div v-else class="present-cards">
-          <article v-for="item in state.awards" :key="item.id" class="present-card">
-            <h3>{{ item.name }}</h3>
-            <p>{{ item.team || 'A definir' }}</p>
-            <p>{{ item.description || '—' }}</p>
-          </article>
-        </div>
-      </div>
-      <div v-if="current === 'fim'">
+      <div v-else-if="current.type === 'fim'">
         <h1>HackLab</h1>
         <p>Obrigado pela participação!</p>
       </div>

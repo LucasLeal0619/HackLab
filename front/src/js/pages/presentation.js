@@ -4,8 +4,6 @@ import { companyOf, teamChallenge, teamName } from '@/js/data/model'
 import { useHack, go } from '@/js/stores/hack'
 
 export function usePresentation() {
-  const PRESENT_STEPS = ['abertura', 'jurados', 'publico', 'premiacao', 'fim']
-
   const { state, update, flash } = useHack()
   const step = ref(0)
 
@@ -33,23 +31,30 @@ export function usePresentation() {
     const meta = teamLabel(team)
     return { team, ...meta, avg: averageOf(team.id), votes: voteCount(team.id) }
   }))
-  const technical = computed(() => rows.value.filter((item) => item.avg != null))
   const totalVotes = computed(() => state.voting.ballots.length)
-  const current = computed(() => PRESENT_STEPS[step.value])
-  const votedRows = computed(() => rows.value.filter((item) => item.votes > 0))
+  const PRESENT_STEPS = computed(() => [
+    { type: 'abertura' },
+    ...rows.value.map((item) => ({ type: 'equipe', teamId: item.team.id })),
+    ...[0, 1, 2].map((awardIndex) => ({ type: 'premiacao', awardIndex })),
+    { type: 'fim' },
+  ])
+  const current = computed(() => PRESENT_STEPS.value[step.value] || { type: 'abertura' })
+  const currentTeam = computed(() => rows.value.find((item) => item.team.id === current.value.teamId))
+  const currentAward = computed(() => state.awards[current.value.awardIndex] || null)
 
   function goStep(next) {
-    step.value = Math.min(PRESENT_STEPS.length - 1, Math.max(0, next))
+    step.value = Math.min(PRESENT_STEPS.value.length - 1, Math.max(0, next))
   }
 
   return {
     PRESENT_STEPS,
     state,
     step,
-    technical,
+    rows,
     totalVotes,
     current,
-    votedRows,
+    currentTeam,
+    currentAward,
     goStep,
     teamName,
     go,
